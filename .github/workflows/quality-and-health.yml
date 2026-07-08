@@ -1,0 +1,64 @@
+name: Beauty Center quality and health
+
+on:
+  push:
+    paths:
+      - "app.js"
+      - "adapters/**"
+      - "index.html"
+      - "styles.css"
+      - "vercel.json"
+      - "docs/**"
+      - ".github/workflows/**"
+  pull_request:
+    paths:
+      - "app.js"
+      - "adapters/**"
+      - "index.html"
+      - "styles.css"
+      - "vercel.json"
+      - "docs/**"
+      - ".github/workflows/**"
+  workflow_dispatch:
+  schedule:
+    - cron: "20 10 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  static-check:
+    name: Static JavaScript and delivery docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Check JavaScript syntax
+        run: |
+          node --version
+          for file in app.js adapters/*.js; do
+            node --check "$file"
+          done
+
+      - name: Package delivery documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: beauty-center-delivery-docs
+          path: |
+            README.md
+            docs/*.md
+            docs/*.sql
+          retention-days: 14
+
+  deployed-health:
+    name: Optional deployed health check
+    runs-on: ubuntu-latest
+    if: ${{ vars.APP_HEALTH_URL != '' }}
+    steps:
+      - name: Check public app URL
+        env:
+          APP_HEALTH_URL: ${{ vars.APP_HEALTH_URL }}
+        run: |
+          curl -fsS "$APP_HEALTH_URL" > /tmp/beauty-center-health.html
+          test -s /tmp/beauty-center-health.html

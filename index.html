@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Beauty Center</title>
+    <link rel="stylesheet" href="./styles.css?v=20260706-visual-polish-2" />
+  </head>
+  <body>
+    <a class="skip-link" href="#app">Saltar al contenido</a>
+    <section class="login-screen" data-login-screen>
+      <form class="login-card" data-login-form>
+        <img src="./assets/logo-beauty-center.jpg" width="64" height="64" alt="" />
+        <div>
+          <p class="eyebrow">Acceso privado</p>
+          <h1>Beauty Center</h1>
+          <p>Ingresa con tu usuario para ver la agenda, pacientes y herramientas según tu rol.</p>
+        </div>
+        <label>
+          Correo
+          <input name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="admin@beautycenter.cl" required />
+        </label>
+        <label>
+          Contraseña
+          <input name="password" type="password" autocomplete="current-password" placeholder="Contraseña" required />
+        </label>
+        <p class="login-error" data-login-error hidden>Usuario o contraseña incorrectos.</p>
+        <button class="primary-button" type="submit">Entrar</button>
+        <button class="ghost-button" type="button" data-reset-access>Restablecer acceso</button>
+      </form>
+    </section>
+
+    <section class="welcome-screen" data-welcome-screen hidden>
+      <article class="welcome-cover">
+        <img src="./assets/logo-beauty-center.jpg" width="148" height="148" alt="" data-welcome-image />
+        <p class="eyebrow">Beauty Center</p>
+        <h1 data-welcome-title>Hola, bienvenida</h1>
+        <p data-welcome-copy>Tu panel está listo para revisar agenda, pacientes y gestión clínica.</p>
+        <div class="welcome-cover-stats" data-welcome-cover-stats></div>
+        <button class="primary-button" type="button" data-enter-system>Entrar al sistema</button>
+      </article>
+    </section>
+
+    <div class="app-shell" data-app-shell hidden>
+      <aside class="sidebar">
+        <div class="brand">
+          <img src="./assets/logo-beauty-center.jpg" width="48" height="48" alt="" />
+          <span>
+            <strong>Beauty Center</strong>
+          </span>
+        </div>
+
+        <nav class="side-nav" aria-label="Módulos del sistema">
+          <button class="is-active" type="button" data-view="dashboard">Resumen</button>
+          <button type="button" data-view="agenda">Agenda</button>
+          <button type="button" data-view="pacientes">CRM pacientes</button>
+          <button type="button" data-view="solicitudes">Solicitudes</button>
+          <button type="button" data-view="configuracion">Administración</button>
+        </nav>
+
+        <div class="sidebar-note" data-user-card>
+          <span>Sesión</span>
+          <p>Usuario conectado</p>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" data-view-eyebrow>Panel principal</p>
+            <h1 data-view-title>Resumen clínico/comercial</h1>
+            <p data-view-copy>Agenda, CRM, solicitudes e historial conectados por paciente.</p>
+          </div>
+          <div class="topbar-actions">
+            <label class="search-box">
+              <span>Buscar</span>
+              <input data-search type="search" autocomplete="off" placeholder="Paciente, teléfono, tratamiento…" />
+            </label>
+            <button class="primary-button" type="button" data-open-appointment>Nueva hora</button>
+            <button class="ghost-button" type="button" data-logout>Cerrar sesión</button>
+          </div>
+        </header>
+
+        <section id="app" class="view-host" aria-live="polite"></section>
+      </main>
+    </div>
+
+    <dialog class="modal" data-appointment-modal>
+      <form data-appointment-form>
+        <input type="hidden" name="id" />
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Agenda</p>
+            <h2 data-appointment-modal-title>Nueva hora</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal aria-label="Cerrar">×</button>
+        </div>
+        <div class="modal-grid">
+          <label>
+            Tipo de paciente
+            <select name="patientMode" data-appointment-patient-mode>
+              <option value="existing">Paciente existente</option>
+              <option value="new">Paciente nueva</option>
+            </select>
+          </label>
+          <label data-appointment-existing-patient-field>
+            Paciente existente
+            <select name="patientId" data-patient-select required></select>
+          </label>
+          <label data-appointment-new-patient-field hidden>
+            Nombre paciente nueva
+            <input name="newPatientName" type="text" autocomplete="name" />
+          </label>
+          <label data-appointment-new-patient-field hidden>
+            WhatsApp paciente nueva
+            <input name="newPatientPhone" type="tel" inputmode="tel" autocomplete="tel" />
+          </label>
+          <label>
+            Tratamiento
+            <select name="treatmentId" data-treatment-select required></select>
+          </label>
+          <label>
+            Profesional
+            <select name="professionalId" data-professional-select required></select>
+          </label>
+          <label>
+            Recurso
+            <select name="resourceId" data-resource-select required></select>
+          </label>
+          <label>
+            Fecha
+            <input name="date" type="date" required />
+          </label>
+          <label>
+            Hora
+            <select name="time" required></select>
+          </label>
+          <label>
+            Estado
+            <select name="status">
+              <option value="requested">Solicitada</option>
+              <option value="confirmed">Confirmada</option>
+              <option value="rescheduled">Reagendada</option>
+              <option value="paid">Pagada</option>
+              <option value="attended">Atendida</option>
+              <option value="cancelled">Cancelada</option>
+            </select>
+          </label>
+          <label>
+            Observación
+            <input name="note" type="text" autocomplete="off" placeholder="Ej: trae comprobante, control post tratamiento" />
+          </label>
+        </div>
+        <p class="form-hint" data-slot-hint>Selecciona paciente, tratamiento, profesional, fecha y hora.</p>
+        <div class="modal-actions">
+          <button class="primary-button" type="submit">Guardar hora</button>
+          <button class="ghost-button" type="button" data-close-modal>Cancelar</button>
+          <button class="danger-button" type="button" data-delete-appointment>Eliminar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" data-patient-modal>
+      <form data-patient-form>
+        <input type="hidden" name="id" />
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">CRM</p>
+            <h2 data-patient-modal-title>Editar paciente</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal aria-label="Cerrar">×</button>
+        </div>
+        <div class="modal-grid">
+          <label>
+            Nombre
+            <input name="name" type="text" autocomplete="name" required />
+          </label>
+          <label>
+            WhatsApp
+            <input name="phone" type="tel" inputmode="tel" autocomplete="tel" required />
+          </label>
+          <label>
+            Correo
+            <input name="email" type="email" autocomplete="email" required />
+          </label>
+          <label>
+            Origen
+            <select name="origin">
+              <option>Formulario web</option>
+              <option>Instagram</option>
+              <option>WhatsApp</option>
+              <option>Referida</option>
+              <option>Teléfono</option>
+            </select>
+          </label>
+          <label>
+            Segmentos
+            <input name="segments" type="text" autocomplete="off" placeholder="VIP, Inactiva, Oportunidad" />
+          </label>
+          <label>
+            Nota interna
+            <input name="notes" type="text" autocomplete="off" placeholder="Preferencias, alertas o contexto comercial" />
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="primary-button" type="submit">Guardar paciente</button>
+          <button class="ghost-button" type="button" data-close-modal>Cancelar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" data-plan-modal>
+      <form data-plan-form>
+        <input type="hidden" name="id" />
+        <input type="hidden" name="patientId" />
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Plan de tratamiento</p>
+            <h2 data-plan-modal-title>Editar plan</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal aria-label="Cerrar">×</button>
+        </div>
+        <div class="modal-grid">
+          <label>
+            Tratamiento
+            <select name="treatmentId" data-plan-treatment-select required></select>
+          </label>
+          <label>
+            Sesiones compradas
+            <input name="purchasedSessions" type="number" min="1" max="40" required />
+          </label>
+          <label>
+            Sesiones realizadas
+            <input name="completedSessions" type="number" min="0" max="40" required />
+          </label>
+          <label>
+            Estado
+            <select name="status">
+              <option value="active">Activo</option>
+              <option value="completed">Completado</option>
+              <option value="paused">Pausado</option>
+            </select>
+          </label>
+          <label class="wide-field">
+            Próxima acción
+            <input name="nextAction" type="text" required />
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="primary-button" type="submit">Guardar plan</button>
+          <button class="ghost-button" type="button" data-close-modal>Cancelar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" data-session-modal>
+      <form data-session-form>
+        <input type="hidden" name="planId" />
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Sesión de tratamiento</p>
+            <h2 data-session-modal-title>Registrar sesión</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal aria-label="Cerrar">×</button>
+        </div>
+        <div class="modal-grid">
+          <label>
+            Fecha
+            <input name="date" type="date" required />
+          </label>
+          <label>
+            Profesional
+            <select name="professionalId" data-session-professional-select required></select>
+          </label>
+          <label class="wide-field">
+            Nota de la sesión
+            <textarea name="note" required autocomplete="off" placeholder="Ej: buena tolerancia, zona sensible, revisar reacción en próxima visita"></textarea>
+          </label>
+          <label class="wide-field">
+            Próxima acción sugerida
+            <input name="nextAction" type="text" autocomplete="off" placeholder="Ej: agendar control en 30 días" />
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="primary-button" type="submit">Guardar sesión</button>
+          <button class="ghost-button" type="button" data-close-modal>Cancelar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" data-history-modal>
+      <form data-history-form>
+        <input type="hidden" name="id" />
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Historial clínico</p>
+            <h2>Editar registro</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal aria-label="Cerrar">×</button>
+        </div>
+        <div class="modal-grid">
+          <label>
+            Fecha
+            <input name="date" type="date" required />
+          </label>
+          <label>
+            Profesional
+            <select name="professionalId" data-history-professional-select required></select>
+          </label>
+          <label class="wide-field">
+            Nota
+            <textarea name="note" required></textarea>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="primary-button" type="submit">Guardar registro</button>
+          <button class="ghost-button" type="button" data-close-modal>Cancelar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" data-request-modal>
+      <form data-request-form>
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Solicitud</p>
+            <h2>Nueva solicitud</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal aria-label="Cerrar">×</button>
+        </div>
+        <div class="modal-grid">
+          <label>
+            Tipo de paciente
+            <select name="mode" data-request-mode>
+              <option value="existing">Paciente existente</option>
+              <option value="new">Paciente nueva</option>
+            </select>
+          </label>
+          <label data-existing-patient-field>
+            Paciente existente
+            <select name="patientId" data-request-patient-select></select>
+          </label>
+          <label data-new-patient-field hidden>
+            Nombre paciente nueva
+            <input name="newName" type="text" autocomplete="name" />
+          </label>
+          <label data-new-patient-field hidden>
+            WhatsApp paciente nueva
+            <input name="newPhone" type="tel" inputmode="tel" autocomplete="tel" />
+          </label>
+          <label>
+            Tratamiento
+            <select name="treatmentId" data-request-treatment-select required></select>
+          </label>
+          <label>
+            Profesional sugerida
+            <select name="professionalId" data-request-professional-select required></select>
+          </label>
+          <label>
+            Fecha sugerida
+            <input name="date" type="date" required />
+          </label>
+          <label>
+            Hora sugerida
+            <select name="time" required></select>
+          </label>
+          <label>
+            Origen
+            <select name="source">
+              <option>Formulario web</option>
+              <option>Instagram</option>
+              <option>WhatsApp</option>
+              <option>Teléfono</option>
+            </select>
+          </label>
+          <label>
+            Estado comercial
+            <select name="status">
+              <option>Pendiente de pago</option>
+              <option>Contactada</option>
+              <option>No respondió</option>
+              <option>Seguimiento pendiente</option>
+              <option>Perdida</option>
+            </select>
+          </label>
+          <label>
+            Próximo seguimiento
+            <input name="followUpDate" type="date" />
+          </label>
+          <label>
+            Nota
+            <input name="note" type="text" autocomplete="off" placeholder="Objetivo o comentario de la paciente" />
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="primary-button" type="submit">Guardar solicitud</button>
+          <button class="ghost-button" type="button" data-close-modal>Cancelar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="toast" data-toast role="status" aria-live="polite"></div>
+    <script type="module" src="./app.js?v=20260706-visual-polish"></script>
+  </body>
+</html>
