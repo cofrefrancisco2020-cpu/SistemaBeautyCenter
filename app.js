@@ -2,6 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 import { createLocalStorageAdapter } from "./adapters/localStorageAdapter.js";
 import { createSupabaseAdapter } from "./adapters/supabaseAdapter.js";
 
+async function bootstrap() {
+
 const STORAGE_KEY = "beauty-center-entrega-real-v2";
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -2741,3 +2743,13 @@ document.addEventListener("input", (event) => {
 });
 
 render();
+}
+
+bootstrap().catch((error) => {
+  console.error("No se pudo iniciar Beauty Center.", error);
+  const loginError = document.querySelector("[data-login-error]");
+  if (loginError) {
+    loginError.textContent = "No pudimos iniciar el sistema. Recarga la pagina o contacta a soporte.";
+    loginError.hidden = false;
+  }
+});
