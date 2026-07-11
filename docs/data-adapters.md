@@ -1,66 +1,47 @@
 # Data adapters
 
-La app ya no debería depender directamente de `localStorage`.
+La app tiene una capa de datos para no amarrar la UI a un solo backend.
 
-Ahora existe una carpeta:
+## LocalStorage
 
-`adapters/`
-
-## Adapter activo
+Archivo:
 
 `adapters/localStorageAdapter.js`
 
-Uso actual:
+Uso:
 
-- Carga el estado demo.
-- Guarda cambios en el navegador.
-- Reinicia demo.
-- Exporta JSON.
+- Demo local.
+- Pruebas rapidas.
+- Fallback si no existen variables Supabase.
+- Exportar respaldo JSON.
 
-Sirve para probar flujos sin pagar backend.
+## Supabase
 
-## Adapter preparado para Supabase
+Archivo:
 
 `adapters/supabaseAdapter.js`
 
-Incluye:
+Uso:
 
-- Mapeo de tablas.
-- Carga inicial de entidades.
-- Conversión entre campos UI y campos SQL.
-- Operaciones preparadas:
-  - `upsertPatient`
-  - `upsertPlan`
-  - `upsertAppointment`
-  - `insertHistory`
-  - `insertRequest`
-  - `insertPayment`
+- Login real con Supabase Auth.
+- Carga de tablas protegidas por RLS.
+- Guardado de cambios contra Postgres.
+- Separacion admin/profesional desde base de datos.
 
-Pendiente:
+El frontend selecciona Supabase automaticamente cuando existen:
 
-- Crear cliente Supabase.
-- Crear `.env`.
-- Usar `docs/schema.sql`.
-- Convertir la UI a carga async.
-- Reemplazar `saveState()` por operaciones puntuales reales.
+```env
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+```
 
-## Adapter preparado para PocketBase
+Si faltan, usa LocalStorage.
 
-`adapters/pocketBaseAdapter.js`
+## Pendiente futuro
 
-Sirve si se decide usar un VPS barato en vez de Supabase.
+Para produccion final completa todavia conviene agregar:
 
-Pendiente:
-
-- Crear colecciones en PocketBase.
-- Definir reglas de acceso.
-- Adaptar nombres de campos.
-
-## Decisión recomendada
-
-Para desarrollar rápido:
-
-1. Mantener `localStorageAdapter` mientras diseñamos flujos.
-2. Crear Supabase cuando la estructura esté aprobada.
-3. Migrar primero pacientes, profesionales, tratamientos y recursos.
-4. Luego migrar agenda, planes, historial y pagos.
+- Edge Function para formulario web publico.
+- Storage para imagenes definitivas de profesionales.
+- Funcion segura para crear usuarios Auth desde el panel admin.
+- Logs/auditoria para cambios sensibles.

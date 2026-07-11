@@ -12,7 +12,8 @@ La app ya funciona como sistema local con:
 - Solicitudes.
 - Administracion de usuarios, profesionales, recursos y tratamientos.
 - Perfil con imagen comprimida.
-- Persistencia local con `localStorage`.
+- Persistencia local con `localStorage` como fallback.
+- Base preparada para Vite + Supabase Auth/Postgres.
 - Documentos base de Supabase, RLS, seguridad y deploy.
 
 Lo que falta para produccion real es reemplazar la capa local por Auth + base de datos real.
@@ -64,11 +65,15 @@ Prueba obligatoria de RLS:
 
 ### 4. Conectar frontend con Supabase
 
-Cambios de codigo pendientes:
+Cambios de codigo ya encaminados:
 
-- Reemplazar login local por Supabase Auth.
-- Reemplazar `createLocalStorageAdapter` por `createSupabaseAdapter`.
-- Quitar contrasenas de prueba desde `app.js`.
+- Login real preparado con Supabase Auth cuando existan variables `VITE_SUPABASE_*`.
+- `createSupabaseAdapter` conectado como alternativa real al fallback local.
+- Build Vite preparado sin source maps publicos.
+
+Pendientes de produccion:
+
+- Quitar/aislar contrasenas demo cuando Supabase quede activo para el cliente.
 - Guardar imagenes de profesionales en Supabase Storage.
 - Mantener compresion de imagen en navegador antes de subir.
 - Convertir operaciones grandes en operaciones puntuales: insertar paciente, actualizar cita, crear solicitud, registrar sesion.
@@ -112,7 +117,7 @@ Ya existe `vercel.json` con:
 - Cache para HTML, JS, CSS y assets.
 - CSP preparada para Supabase.
 
-Cuando pasemos a Vite/Next:
+Con Vite:
 
 - Build minificado.
 - Source maps publicos desactivados.
@@ -173,7 +178,7 @@ Seguridad:
 
 ## Siguiente decision tecnica
 
-Para terminar bien, la recomendacion es migrar esta app estatica a Vite antes de conectar Supabase. Es el paso mas limpio porque permite:
+La app ya quedo preparada para Vite. Lo siguiente es terminar la conexion operativa de Supabase:
 
 - Variables de entorno publicas.
 - Build minificado.

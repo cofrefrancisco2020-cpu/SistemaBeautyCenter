@@ -4,7 +4,7 @@ Fecha de revision: 2026-07-07.
 
 ## Estado actual
 
-La version actual es una app estatica de demostracion/operacion local. Usa `localStorage` para guardar usuarios, pacientes, agenda, solicitudes, planes e historial.
+La version actual mantiene fallback local con `localStorage`, pero ya esta preparada para Vite + Supabase Auth/Postgres cuando existan variables `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`.
 
 Eso significa:
 
@@ -80,7 +80,7 @@ No sirve para:
 - Reemplazar Auth, RLS o validaciones del servidor.
 - Impedir que alguien inspeccione el comportamiento de la app.
 
-Cuando migremos a Vite/Next:
+Con Vite:
 
 - Build de produccion minificado.
 - Source maps apagados para navegador publico.

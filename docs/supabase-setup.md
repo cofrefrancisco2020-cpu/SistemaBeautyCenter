@@ -2,97 +2,128 @@
 
 ## Objetivo
 
-Pasar de `localStorageAdapter` a `supabaseAdapter` sin rehacer la UI.
+Conectar Beauty Center a Supabase usando:
 
-## Datos que debes conseguir
+- Supabase Auth para login real.
+- Postgres para pacientes, agenda, solicitudes, tratamientos, recursos e historial.
+- RLS para separar administracion y profesionales.
+- Vercel + Vite para compilar el frontend sin exponer claves privadas.
 
-En Supabase:
+## Claves correctas
 
-- Project URL.
-- Anon public key.
-- Service role key solo para scripts privados, nunca en frontend.
+En Supabase, copia solo:
 
-De Beauty Center:
+- Project URL
+- anon public key
 
-- Correos de administradoras.
-- Correos de profesionales.
-- Lista inicial de profesionales.
-- Tratamientos y precios.
-- Recursos: máquinas, boxes, sauna.
+No copies ni pegues la `service_role` en Vercel frontend. Esa clave se salta RLS y solo se usa en scripts privados o funciones backend.
 
 ## Orden recomendado
 
 1. Crear proyecto Supabase.
-2. Abrir SQL editor.
-3. Ejecutar `docs/schema.sql`.
-4. Insertar tratamientos, recursos y profesionales.
-5. Crear usuarios en Supabase Auth.
-6. Insertar filas en `app_users` conectando cada usuario con su rol.
-7. Ejecutar `docs/rls-policies.sql`.
-8. Probar login admin.
-9. Probar login profesional.
-10. Probar que la vista `resource_occupancy` devuelve máquinas ocupadas sin datos clínicos.
-11. Recién ahí conectar la app.
+2. Elegir region `South America / Sao Paulo`.
+3. Mantener `Data API` activa.
+4. No exponer nuevas tablas automaticamente si Supabase permite desmarcarlo.
+5. Activar RLS automatico si esta disponible.
+6. Abrir SQL Editor.
+7. Ejecutar en este orden:
+   - `docs/schema.sql`
+   - `docs/seed-demo-data.sql`
+   - `docs/rls-policies.sql`
+   - `docs/supabase-security-hardening.sql`
+8. Crear los primeros usuarios en Authentication > Users:
+   - `admin@beautycenter.cl`
+   - `javiera@beautycenter.cl`
+9. Copiar el `User UID` de cada usuario Auth.
+10. En SQL Editor, enlazar esos UID con `app_users`.
 
-## Variables futuras
+Ejemplo:
 
-Para una app con build tool:
+```sql
+update app_users
+set auth_user_id = 'PEGAR-UID-DEL-USUARIO-AUTH'
+where email = 'admin@beautycenter.cl';
+```
+
+Repetir para el primer profesional.
+
+## Crear usuarios despues de la entrega
+
+Despues de configurar el primer administrador, los nuevos accesos se crean desde la app:
+
+`Administracion > Crear o editar acceso`
+
+Ese formulario llama la Edge Function `admin-upsert-user`, que:
+
+- exige una sesion iniciada;
+- revisa que el perfil interno sea `admin`;
+- crea o actualiza el usuario en Supabase Auth;
+- crea o actualiza el perfil en `app_users`;
+- crea o actualiza el profesional asociado cuando el rol es `professional`.
+
+La contrasena solo se usa en Supabase Auth. No se guarda en `app_users`.
+Al crear un acceso nuevo es obligatoria. Al editar, se puede dejar vacia si no se quiere cambiar.
+
+Importante: si `admin-upsert-user` no esta desplegada como Edge Function, el panel de
+Administracion no puede crear usuarios reales de Supabase Auth. El formulario puede existir,
+pero la creacion de correos y contrasenas no queda operativa.
+
+## Variables en Vercel
+
+En Vercel > Project > Settings > Environment Variables:
 
 ```env
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
+VITE_SUPABASE_URL=https://xxxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...
 ```
 
-Para Next.js:
+Agregar las dos variables en Production y Preview si quieres probar previews.
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-```
+Luego hacer redeploy.
 
-## Migración de UI
+## Pruebas obligatorias
 
-Hoy:
+Admin:
 
-```js
-const dataAdapter = createLocalStorageAdapter({ storageKey, seed });
-```
+- Inicia sesion.
+- Ve Resumen, Agenda, CRM, Solicitudes y Administracion.
+- Puede crear/editar paciente.
+- Puede crear/editar recurso.
+- Puede crear/editar tratamiento.
+- Puede agendar hora.
 
-Después:
+Profesional:
 
-```js
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const dataAdapter = createSupabaseAdapter({ supabase });
-```
+- Inicia sesion.
+- No ve Administracion.
+- No ve Solicitudes globales de administracion.
+- Ve sus citas.
+- Ve sus pacientes asignadas.
+- Ve recursos ocupados sin ficha clinica ajena.
+- Puede registrar historial propio.
 
-## Nota importante
+Anonimo:
 
-La app actual es HTML estático. Para usar Supabase de forma seria conviene mover esta entrega a Vite o Next.js:
+- No puede leer pacientes.
+- No puede leer citas.
+- No puede leer historial.
+- No puede leer pagos.
 
-- Vite si queremos SPA simple y rápida.
-- Next.js si queremos rutas protegidas, middleware y despliegue más formal.
+## Formulario web publico
 
-Mi recomendación para este proyecto:
+Para conectar la web actual con solicitudes:
 
-1. Seguir probando flujos en HTML estático.
-2. Cuando el flujo esté aprobado, migrar a Vite + Supabase.
-3. Si después necesita portal público y panel interno más robusto, evaluar Next.js.
+- Opcion recomendada: usar una Edge Function/API con CORS limitado al dominio de la web.
+- Esa funcion crea paciente/solicitud y devuelve exito.
+- Luego el formulario abre WhatsApp con el mensaje prellenado.
+- En el ERP aparece la solicitud en estado `Pendiente de pago`.
 
-## Vista de recursos ocupados
+No recomiendo que la web publica escriba directo a las tablas internas con permisos amplios.
 
-La agenda profesional necesita ver recursos ocupados por todo el equipo, pero no debe exponer fichas de pacientes de otras profesionales.
+## Nota operativa
 
-Para eso `docs/schema.sql` crea la vista `resource_occupancy`, que solo entrega:
+La app ya tiene fallback local. Si Vercel no tiene `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`, sigue funcionando como demo local con `localStorage`.
 
-- `resource_id`
-- `professional_id`
-- `appointment_date`
-- `appointment_time`
-- `status`
-
-En producción, el adaptador debería cargar:
-
-- `appointments`: solo las citas visibles por RLS para el usuario.
-- `resource_occupancy`: ocupación general de máquinas/boxes para pintar contexto en la agenda.
-
-Así mantenemos la separación correcta: agenda útil para reservar, sin filtrar datos clínicos de otras pacientes.
+Para entrega real, ese fallback solo sirve como respaldo de emergencia. La prueba obligatoria
+es crear un dato, abrir incognito y confirmar que el dato sigue apareciendo. Si no aparece,
+la URL publicada sigue en modo demo/local.

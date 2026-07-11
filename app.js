@@ -1,4 +1,6 @@
+import { createClient } from "@supabase/supabase-js";
 import { createLocalStorageAdapter } from "./adapters/localStorageAdapter.js";
+import { createSupabaseAdapter } from "./adapters/supabaseAdapter.js";
 
 const STORAGE_KEY = "beauty-center-entrega-real-v2";
 
@@ -154,12 +156,32 @@ const seed = {
   ],
 };
 
-const dataAdapter = createLocalStorageAdapter({ storageKey: STORAGE_KEY, seed });
+const isFilledEnvValue = (value = "") => Boolean(value && !value.includes("your_") && !value.includes("project-url"));
 
-let state = normalizeState(loadState());
+const createFallbackAdapter = () => createLocalStorageAdapter({ storageKey: STORAGE_KEY, seed });
+
+function createDataAdapter() {
+  const env = import.meta.env ?? {};
+  const supabaseUrl = env.VITE_SUPABASE_URL ?? "";
+  const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY ?? "";
+  if (!isFilledEnvValue(supabaseUrl) || !isFilledEnvValue(supabaseAnonKey)) return createFallbackAdapter();
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  });
+  return createSupabaseAdapter({ supabase });
+}
+
+let dataAdapter = createDataAdapter();
+let remoteLoadError = "";
+
+let state = normalizeState(await loadState());
 let pendingRequestId = "";
 let welcomeGateOpen = false;
-dataAdapter.save(state);
+if (dataAdapter.name === "localStorage") dataAdapter.save(state);
 
 const loginScreen = $("[data-login-screen]");
 const welcomeScreen = $("[data-welcome-screen]");
@@ -191,31 +213,62 @@ const requestModal = $("[data-request-modal]");
 const requestForm = $("[data-request-form]");
 const toastEl = $("[data-toast]");
 
-function loadState() {
-  return dataAdapter.load();
+if (remoteLoadError && loginError) {
+  loginError.textContent = remoteLoadError;
+  loginError.hidden = false;
 }
 
-function normalizeState(rawState) {
+async function loadState() {
+  try {
+    return await dataAdapter.load();
+  } catch (error) {
+    console.error("No se pudo cargar Supabase.", error);
+    remoteLoadError = "No pudimos conectar con la base de datos. Intenta nuevamente en unos segundos.";
+    return {
+      currentUserId: "",
+      users: [],
+      professionals: [],
+      patients: [],
+      treatments: [],
+      resources: [],
+      plans: [],
+      appointments: [],
+      histories: [],
+      requests: [],
+      payments: [],
+    };
+  }
+}
+
+function normalizeState(rawState = {}) {
+  const useDemoDefaults = dataAdapter.name === "localStorage";
+  const items = (key) => {
+    if (Array.isArray(rawState[key])) return rawState[key];
+    return useDemoDefaults ? seed[key].map((item) => ({ ...item })) : [];
+  };
   const next = { ...seed, ...rawState };
   next.crmFilters = { ...defaultCrmFilters, ...(rawState.crmFilters ?? {}) };
-  next.users = (rawState.users?.length ? rawState.users : seed.users.map((user) => ({ ...user }))).map((user) => ({
+  next.users = items("users").map((user) => ({
     ...user,
     image: user.image || "",
   }));
-  next.professionals = rawState.professionals?.length ? rawState.professionals : seed.professionals.map((professional) => ({ ...professional }));
-  next.resources = (rawState.resources?.length ? rawState.resources : seed.resources).map((resource) => ({
+  next.professionals = items("professionals");
+  next.patients = items("patients");
+  next.resources = items("resources").map((resource) => ({
     ...resource,
     type: resource.type || inferResourceType(resource.name),
     active: resource.active !== false,
   }));
-  next.treatments = (rawState.treatments?.length ? rawState.treatments : seed.treatments).map((treatment) => ({
+  next.treatments = items("treatments").map((treatment) => ({
     ...treatment,
     price: Number(treatment.price ?? 0),
     defaultSessions: Number(treatment.defaultSessions ?? 1),
     resourceId: treatment.resourceId || "res-none",
     active: treatment.active !== false,
   }));
-  next.histories = (rawState.histories?.length ? rawState.histories : seed.histories).map((history) => {
+  next.plans = items("plans");
+  next.appointments = items("appointments");
+  next.histories = items("histories").map((history) => {
     const migrated = { ...history };
     const looksManualSession = /sesión registrada manualmente/i.test(migrated.note ?? "");
     if (!migrated.planId && looksManualSession) {
@@ -225,21 +278,24 @@ function normalizeState(rawState) {
     if (migrated.planId && looksManualSession) migrated.sessionEntry = true;
     return migrated;
   });
-  next.requests = (rawState.requests?.length ? rawState.requests : seed.requests).map((request) => ({
+  next.requests = items("requests").map((request) => ({
     ...request,
     status: request.status || "Pendiente de pago",
     followUpDate: request.followUpDate || request.follow_up_date || addDays(request.date || today, 2),
   }));
-  seed.users.forEach((defaultUser) => {
-    const index = next.users.findIndex((user) => user.id === defaultUser.id);
-    if (index < 0) {
-      next.users.push({ ...defaultUser });
-      return;
-    }
-    if (defaultUser.id === "user-admin") {
-      next.users[index] = { ...next.users[index], ...defaultUser, image: next.users[index].image || defaultUser.image };
-    }
-  });
+  next.payments = items("payments");
+  if (useDemoDefaults) {
+    seed.users.forEach((defaultUser) => {
+      const index = next.users.findIndex((user) => user.id === defaultUser.id);
+      if (index < 0) {
+        next.users.push({ ...defaultUser });
+        return;
+      }
+      if (defaultUser.id === "user-admin") {
+        next.users[index] = { ...next.users[index], ...defaultUser, image: next.users[index].image || defaultUser.image };
+      }
+    });
+  }
   next.currentUserId = next.users.some((user) => user.id === rawState.currentUserId) ? rawState.currentUserId : "";
   next.agendaDate = rawState.agendaDate || today;
   return next;
@@ -255,8 +311,15 @@ function ensureBaseAdmin() {
   return state.users[state.users.length - 1];
 }
 
-function saveState() {
-  dataAdapter.save(state);
+async function saveState() {
+  try {
+    await dataAdapter.save(state);
+    return true;
+  } catch (error) {
+    console.error("No se pudo guardar en la base de datos.", error);
+    showToast("No se pudo guardar en Supabase. Revisa la conexion.");
+    return false;
+  }
 }
 
 function normalizeEmail(value = "") {
@@ -985,7 +1048,8 @@ function renderSettings() {
             </label>
             <label>
               Contraseña
-              <input name="password" type="text" required />
+              <input name="password" type="password" autocomplete="new-password" placeholder="Minimo 8 caracteres" />
+              <span class="form-hint">Obligatoria al crear. En edicion, dejala vacia si no quieres cambiarla.</span>
             </label>
             <label>
               Estado
@@ -1803,7 +1867,7 @@ function hasAppointmentConflict(candidate) {
   });
 }
 
-function saveAppointment(event) {
+async function saveAppointment(event) {
   event.preventDefault();
   const data = Object.fromEntries(new FormData(appointmentForm));
   let patientId = data.patientId;
@@ -1844,14 +1908,14 @@ function saveAppointment(event) {
     if (request) request.status = "Agendada";
     pendingRequestId = "";
   }
-  if (appointment.status === "attended") registerAttendance(appointment.id, false);
-  saveState();
+  if (appointment.status === "attended") await registerAttendance(appointment.id, false);
+  if (!(await saveState())) return;
   appointmentModal.close();
   render();
   showToast("Hora guardada y vinculada al paciente.");
 }
 
-function savePatient(event) {
+async function savePatient(event) {
   event.preventDefault();
   const data = Object.fromEntries(new FormData(patientForm));
   const patient = {
@@ -1868,13 +1932,13 @@ function savePatient(event) {
   if (index >= 0) state.patients[index] = patient;
   else state.patients.push(patient);
   state.selectedPatientId = patient.id;
-  saveState();
+  if (!(await saveState())) return;
   patientModal.close();
   render();
   showToast("Paciente guardada.");
 }
 
-function savePlan(event) {
+async function savePlan(event) {
   event.preventDefault();
   const data = Object.fromEntries(new FormData(planForm));
   const previousPlan = byId("plans", data.id);
@@ -1892,7 +1956,7 @@ function savePlan(event) {
   if (index >= 0) state.plans[index] = plan;
   else state.plans.push(plan);
   syncPlanHistoryAfterEdit(previousPlan, plan);
-  saveState();
+  if (!(await saveState())) return;
   planModal.close();
   render();
   showToast("Plan actualizado.");
@@ -1913,7 +1977,7 @@ function syncPlanHistoryAfterEdit(previousPlan, nextPlan) {
   state.histories = state.histories.filter((history) => !removableIds.has(history.id));
 }
 
-function saveRequest(event) {
+async function saveRequest(event) {
   event.preventDefault();
   const data = Object.fromEntries(new FormData(requestForm));
   let patientId = data.patientId;
@@ -1939,13 +2003,13 @@ function saveRequest(event) {
     note: data.note,
   });
   state.selectedPatientId = patientId;
-  saveState();
+  if (!(await saveState())) return;
   requestModal.close();
   render();
   showToast("Solicitud guardada y vinculada al CRM.");
 }
 
-function registerAttendance(appointmentId, shouldRender = true) {
+async function registerAttendance(appointmentId, shouldRender = true) {
   const appointment = byId("appointments", appointmentId);
   if (!appointment) return;
   appointment.status = "attended";
@@ -1970,7 +2034,7 @@ function registerAttendance(appointmentId, shouldRender = true) {
       sessionEntry: Boolean(plan),
     });
   }
-  saveState();
+  if (!(await saveState())) return;
   if (shouldRender) {
     render();
     showToast("Atención registrada: historial y sesiones actualizados.");
@@ -1981,7 +2045,7 @@ function registerPlanSession(planId) {
   return openSessionModal(planId);
 }
 
-function saveSession(event) {
+async function saveSession(event) {
   event.preventDefault();
   const data = Object.fromEntries(new FormData(sessionForm));
   const plan = byId("plans", data.planId);
@@ -2003,13 +2067,13 @@ function saveSession(event) {
     note: data.note.trim(),
     sessionEntry: true,
   });
-  saveState();
+  if (!(await saveState())) return;
   sessionModal.close();
   render();
   showToast("Sesión registrada con nota en historial.");
 }
 
-function saveHistory(event) {
+async function saveHistory(event) {
   event.preventDefault();
   const data = Object.fromEntries(new FormData(historyForm));
   const history = byId("histories", data.id);
@@ -2019,13 +2083,13 @@ function saveHistory(event) {
   history.note = data.note.trim();
   const patient = byId("patients", history.patientId);
   if (patient && (!patient.lastVisit || history.date >= patient.lastVisit)) patient.lastVisit = history.date;
-  saveState();
+  if (!(await saveState())) return;
   historyModal.close();
   render();
   showToast("Historial actualizado.");
 }
 
-function deleteHistory(historyId, shouldRender = true) {
+async function deleteHistory(historyId, shouldRender = true) {
   const history = byId("histories", historyId);
   if (!history) return;
   if (history.planId && history.sessionEntry) {
@@ -2036,21 +2100,21 @@ function deleteHistory(historyId, shouldRender = true) {
     }
   }
   state.histories = state.histories.filter((item) => item.id !== historyId);
-  saveState();
+  if (!(await saveState())) return;
   if (shouldRender) {
     render();
     showToast("Registro eliminado del historial.");
   }
 }
 
-function deleteLastPlanSession(planId) {
+async function deleteLastPlanSession(planId) {
   const lastSession = newestSessionHistoriesForPlan(planId)[0];
   const plan = byId("plans", planId);
   if (lastSession) return deleteHistory(lastSession.id);
   if (plan && plan.completedSessions > 0) {
     plan.completedSessions -= 1;
     if (plan.completedSessions < plan.purchasedSessions && plan.status === "completed") plan.status = "active";
-    saveState();
+    if (!(await saveState())) return;
     render();
     showToast("Sesión descontada del plan.");
     return;
@@ -2080,7 +2144,7 @@ function registerPlanSessionLegacy(planId) {
   showToast("Sesión sumada al plan e historial.");
 }
 
-function updateRequestStatus(requestId, status) {
+async function updateRequestStatus(requestId, status) {
   const request = byId("requests", requestId);
   if (!request) return;
   request.status = status;
@@ -2093,17 +2157,17 @@ function updateRequestStatus(requestId, status) {
   if (status === "Seguimiento pendiente" && !request.followUpDate) {
     request.followUpDate = addDays(today, 1);
   }
-  saveState();
+  if (!(await saveState())) return;
   render();
   showToast("Estado de solicitud actualizado.");
 }
 
-function updateRequestFollowUp(requestId, followUpDate) {
+async function updateRequestFollowUp(requestId, followUpDate) {
   const request = byId("requests", requestId);
   if (!request) return;
   request.followUpDate = followUpDate;
   if (!["Agendada", "Perdida"].includes(request.status)) request.status = "Seguimiento pendiente";
-  saveState();
+  if (!(await saveState())) return;
   render();
   showToast("Seguimiento actualizado.");
 }
@@ -2135,11 +2199,52 @@ function fillAccessForm(userId) {
   setAccessPreview(accessImageForUser(user));
 }
 
-function saveAccess(event) {
+async function saveAccess(event) {
   event.preventDefault();
   const form = event.target;
   const data = Object.fromEntries(new FormData(form));
+  const existingUser = data.userId ? byId("users", data.userId) : null;
+
+  if (!data.userId && !normalizePassword(data.password)) {
+    showToast("Ingresa una contrasena inicial para el nuevo acceso.");
+    return;
+  }
+
+  if (normalizePassword(data.password) && normalizePassword(data.password).length < 8) {
+    showToast("La contrasena debe tener al menos 8 caracteres.");
+    return;
+  }
+
   let professionalId = data.professionalId;
+  const accessPayload = {
+    userId: data.userId || uid("user"),
+    professionalId,
+    name: data.name.trim(),
+    email: normalizeEmail(data.email),
+    password: normalizePassword(data.password),
+    role: data.role,
+    professionalRole: data.professionalRole.trim() || "Profesional",
+    image: data.image || "",
+    active: data.active === "true",
+  };
+
+  if (data.role === "professional" && !accessPayload.professionalId) {
+    accessPayload.professionalId = uid(`pro-${slugText(data.name) || "profesional"}`);
+    professionalId = accessPayload.professionalId;
+  }
+
+  if (dataAdapter.name === "supabase" && dataAdapter.upsertAccess) {
+    try {
+      await dataAdapter.upsertAccess(accessPayload);
+      state = normalizeState(await dataAdapter.load());
+      render();
+      showToast("Acceso real guardado en Supabase.");
+    } catch (error) {
+      console.error("No se pudo guardar el acceso real.", error);
+      showToast(error.message || "No se pudo guardar el acceso.");
+    }
+    return;
+  }
 
   if (data.role === "professional") {
     if (professionalId) {
@@ -2163,10 +2268,10 @@ function saveAccess(event) {
   }
 
   const user = {
-    id: data.userId || uid("user"),
+    id: accessPayload.userId,
     name: data.name.trim(),
     email: normalizeEmail(data.email),
-    password: normalizePassword(data.password),
+    password: normalizePassword(data.password) || existingUser?.password || "",
     role: data.role,
     professionalId,
     image: data.image || (data.role === "admin" ? "./assets/logo-beauty-center.jpg" : ""),
@@ -2200,7 +2305,7 @@ function fillResourceForm(resourceId) {
   form.elements.active.value = String(resource.active !== false);
 }
 
-function saveResource(event) {
+async function saveResource(event) {
   event.preventDefault();
   const form = event.target;
   const data = Object.fromEntries(new FormData(form));
@@ -2213,7 +2318,7 @@ function saveResource(event) {
   const index = state.resources.findIndex((item) => item.id === resource.id);
   if (index >= 0) state.resources[index] = { ...state.resources[index], ...resource };
   else state.resources.push(resource);
-  saveState();
+  if (!(await saveState())) return;
   render();
   showToast("Recurso guardado.");
 }
@@ -2241,7 +2346,7 @@ function fillTreatmentForm(treatmentId) {
   form.elements.active.value = String(treatment.active !== false);
 }
 
-function saveTreatment(event) {
+async function saveTreatment(event) {
   event.preventDefault();
   const form = event.target;
   const data = Object.fromEntries(new FormData(form));
@@ -2257,16 +2362,49 @@ function saveTreatment(event) {
   const index = state.treatments.findIndex((item) => item.id === treatment.id);
   if (index >= 0) state.treatments[index] = { ...state.treatments[index], ...treatment };
   else state.treatments.push(treatment);
-  saveState();
+  if (!(await saveState())) return;
   render();
   showToast("Tratamiento guardado.");
 }
 
-function handleLogin(event) {
+async function completeLogin(user) {
+  loginError.hidden = true;
+  loginForm.reset();
+  state.currentUserId = user.id;
+  state.activeView = "dashboard";
+  state.selectedSegment = "all";
+  state.crmFilters = { ...defaultCrmFilters };
+  if (searchInput) searchInput.value = "";
+  welcomeGateOpen = true;
+  const first = filteredPatients()[0] ?? visiblePatients()[0];
+  if (first) state.selectedPatientId = first.id;
+  if (!(await saveState())) return;
+  render();
+}
+
+async function handleLogin(event) {
   event.preventDefault();
   const data = Object.fromEntries(new FormData(loginForm));
   const email = normalizeEmail(data.email);
   const password = normalizePassword(data.password);
+
+  if (dataAdapter.name === "supabase") {
+    try {
+      await dataAdapter.signIn(email, password);
+      state = normalizeState(await dataAdapter.load());
+      const user = currentUser();
+      if (!user) throw new Error("La cuenta existe en Auth, pero no tiene perfil interno en app_users.");
+      await completeLogin(user);
+    } catch (error) {
+      console.error("No se pudo iniciar sesion con Supabase.", error);
+      loginError.textContent = error?.message?.includes("app_users")
+        ? "La cuenta no tiene un perfil activo en el sistema. Contacta a administracion."
+        : "Correo o contrasena incorrectos, o la base de datos no esta disponible.";
+      loginError.hidden = false;
+    }
+    return;
+  }
+
   let user = state.users.find(
     (item) =>
       item.active !== false &&
@@ -2284,28 +2422,30 @@ function handleLogin(event) {
     return;
   }
 
-  loginError.hidden = true;
-  loginForm.reset();
-  state.currentUserId = user.id;
-  state.activeView = "dashboard";
-  state.selectedSegment = "all";
-  state.crmFilters = { ...defaultCrmFilters };
-  if (searchInput) searchInput.value = "";
-  welcomeGateOpen = true;
-  const first = filteredPatients()[0] ?? visiblePatients()[0];
-  if (first) state.selectedPatientId = first.id;
-  saveState();
-  render();
+  await completeLogin(user);
 }
 
-function logout() {
+async function logout() {
+  if (dataAdapter.name === "supabase") {
+    try {
+      await dataAdapter.signOut();
+    } catch (error) {
+      console.error("No se pudo cerrar sesion en Supabase.", error);
+    }
+  }
   state.currentUserId = "";
   welcomeGateOpen = false;
-  saveState();
+  await saveState();
   render();
 }
 
 function resetBaseAccess() {
+  if (dataAdapter.name === "supabase") {
+    loginForm.reset();
+    loginError.hidden = true;
+    showToast("En produccion, el acceso se restablece desde Supabase Auth.");
+    return;
+  }
   ensureBaseAdmin();
   state.currentUserId = "";
   welcomeGateOpen = false;
@@ -2315,11 +2455,11 @@ function resetBaseAccess() {
   showToast("Acceso de administración restablecido.");
 }
 
-function deleteAppointment() {
+async function deleteAppointment() {
   if (!isAdmin()) return;
   const id = appointmentForm.elements.id.value;
   state.appointments = state.appointments.filter((appointment) => appointment.id !== id);
-  saveState();
+  if (!(await saveState())) return;
   appointmentModal.close();
   render();
   showToast("Hora eliminada.");
@@ -2375,7 +2515,7 @@ async function compressProfileImage(file) {
   return canvas.toDataURL("image/webp", 0.76);
 }
 
-document.addEventListener("click", (event) => {
+document.addEventListener("click", async (event) => {
   const nav = event.target.closest("[data-view]");
   if (nav) return setActiveView(nav.dataset.view);
 
@@ -2443,7 +2583,7 @@ document.addEventListener("click", (event) => {
   if (contactRequest) {
     const request = byId("requests", contactRequest.dataset.contactRequest);
     if (request) request.status = "Contactada";
-    saveState();
+    if (!(await saveState())) return;
     render();
     return showToast("Solicitud marcada como contactada.");
   }
@@ -2458,6 +2598,10 @@ document.addEventListener("click", (event) => {
   }
 
   if (event.target.closest("[data-reset-data]")) {
+    if (dataAdapter.name === "supabase") {
+      showToast("Los datos de produccion se restauran desde Supabase, no desde el navegador.");
+      return;
+    }
     const confirmed = window.confirm("¿Seguro que quieres reiniciar los datos de esta instalación? Esta acción reemplaza pacientes, citas y configuración por los datos iniciales.");
     if (!confirmed) return;
     state = normalizeState(dataAdapter.reset());
