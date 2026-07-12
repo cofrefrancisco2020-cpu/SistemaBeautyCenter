@@ -313,7 +313,7 @@ create index if not exists communications_patient_created_at_idx
   on communications (patient_id, created_at desc);
 
 create or replace view resource_occupancy
-with (security_invoker = true) as
+with (security_invoker = false, security_barrier = true) as
 select
   resource_id,
   professional_id,
