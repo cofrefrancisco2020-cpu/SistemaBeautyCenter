@@ -1862,7 +1862,7 @@ function updateSlotHint() {
 function resourcesForSlot(date, time, ignoredAppointmentId = "") {
   return allResourceBookings()
     .filter((appointment) => {
-      if (appointment.id === ignoredAppointmentId || appointment.status === "cancelled" || appointment.resourceId === "res-none") return false;
+      if ((ignoredAppointmentId && appointment.id === ignoredAppointmentId) || appointment.status === "cancelled" || appointment.resourceId === "res-none") return false;
       return appointment.date === date && appointment.time === time;
     })
     .sort((a, b) => a.resourceId.localeCompare(b.resourceId));
@@ -1886,7 +1886,7 @@ function hasAppointmentConflict(candidate) {
   if (professionalConflict || candidate.resourceId === "res-none") return professionalConflict;
 
   return allResourceBookings().some((booking) => {
-    if (booking.id === candidate.id) return false;
+    if (candidate.id && booking.id === candidate.id) return false;
     return booking.date === candidate.date && booking.time === candidate.time && booking.resourceId === candidate.resourceId;
   });
 }
