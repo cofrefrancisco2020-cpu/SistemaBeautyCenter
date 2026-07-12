@@ -235,6 +235,7 @@ async function loadState() {
       resources: [],
       plans: [],
       appointments: [],
+      resourceOccupancy: [],
       histories: [],
       requests: [],
       payments: [],
@@ -270,6 +271,7 @@ function normalizeState(rawState = {}) {
   }));
   next.plans = items("plans");
   next.appointments = items("appointments");
+  next.resourceOccupancy = Array.isArray(rawState.resourceOccupancy) ? rawState.resourceOccupancy : [];
   next.histories = items("histories").map((history) => {
     const migrated = { ...history };
     const looksManualSession = /sesión registrada manualmente/i.test(migrated.note ?? "");
@@ -441,6 +443,21 @@ function currentUser() {
 
 function currentProfessionalId() {
   return currentUser()?.professionalId ?? "";
+}
+
+function allResourceBookings() {
+  const bookings = new Map();
+  const addBooking = (booking) => {
+    if (!booking || booking.status === "cancelled" || !booking.resourceId || booking.resourceId === "res-none") return;
+    const key = `${booking.resourceId}|${booking.date}|${booking.time}|${booking.professionalId}`;
+    if (!bookings.has(key)) bookings.set(key, booking);
+  };
+
+  // Las citas propias conservan su ID para poder editarlas; la vista segura completa
+  // los recursos ocupados por otras profesionales sin exponer datos de pacientes.
+  state.appointments.forEach(addBooking);
+  (state.resourceOccupancy ?? []).forEach(addBooking);
+  return [...bookings.values()];
 }
 
 function isAdmin() {
@@ -780,7 +797,7 @@ function renderDashboard() {
 
 function renderAgenda() {
   const visibleAppointments = professionalScope(state.appointments).filter((appointment) => appointment.status !== "cancelled");
-  const allActiveAppointments = state.appointments.filter((appointment) => appointment.status !== "cancelled");
+  const allActiveAppointments = allResourceBookings();
   const days = agendaWeekDays();
   const firstDay = days[0].date;
   const lastDay = days[days.length - 1].date;
@@ -1843,7 +1860,7 @@ function updateSlotHint() {
 }
 
 function resourcesForSlot(date, time, ignoredAppointmentId = "") {
-  return state.appointments
+  return allResourceBookings()
     .filter((appointment) => {
       if (appointment.id === ignoredAppointmentId || appointment.status === "cancelled" || appointment.resourceId === "res-none") return false;
       return appointment.date === date && appointment.time === time;
@@ -1858,14 +1875,19 @@ function formatResourceBooking(appointment) {
 }
 
 function hasAppointmentConflict(candidate) {
-  return state.appointments.some((appointment) => {
+  const professionalConflict = state.appointments.some((appointment) => {
     if (appointment.id === candidate.id || appointment.status === "cancelled") return false;
     return (
       appointment.date === candidate.date &&
       appointment.time === candidate.time &&
-      (appointment.professionalId === candidate.professionalId ||
-        (candidate.resourceId !== "res-none" && appointment.resourceId === candidate.resourceId))
+      appointment.professionalId === candidate.professionalId
     );
+  });
+  if (professionalConflict || candidate.resourceId === "res-none") return professionalConflict;
+
+  return allResourceBookings().some((booking) => {
+    if (booking.id === candidate.id) return false;
+    return booking.date === candidate.date && booking.time === candidate.time && booking.resourceId === candidate.resourceId;
   });
 }
 
