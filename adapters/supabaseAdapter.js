@@ -10,6 +10,7 @@ export const supabaseTables = {
   requests: "appointment_requests",
   payments: "payments",
   communications: "communications",
+  occupancy: "resource_occupancy",
 };
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -61,7 +62,10 @@ export const createSupabaseAdapter = ({ supabase }) => {
         return emptyState();
       }
 
-      const results = await Promise.all(collections.map((collection) => selectAll(supabase, collection.table)));
+      const [results, occupancyRows] = await Promise.all([
+        Promise.all(collections.map((collection) => selectAll(supabase, collection.table))),
+        selectOptional(supabase, supabaseTables.occupancy),
+      ]);
       const loaded = Object.fromEntries(
         collections.map((collection, index) => [
           collection.key,
@@ -72,6 +76,7 @@ export const createSupabaseAdapter = ({ supabase }) => {
       const state = {
         ...emptyState(),
         ...loaded,
+        resourceOccupancy: occupancyRows.map(fromDbResourceOccupancy),
         currentUserId,
         selectedPatientId: loaded.patients[0]?.id ?? "",
       };
@@ -143,11 +148,21 @@ const emptyState = () => ({
   histories: [],
   requests: [],
   payments: [],
+  resourceOccupancy: [],
 });
 
 const selectAll = async (supabase, table) => {
   const { data, error } = await supabase.from(table).select("*");
   if (error) throw error;
+  return data ?? [];
+};
+
+const selectOptional = async (supabase, table) => {
+  const { data, error } = await supabase.from(table).select("*");
+  if (error) {
+    console.warn(`No se pudo cargar ${table}.`, error.message);
+    return [];
+  }
   return data ?? [];
 };
 
@@ -317,6 +332,15 @@ const toDbAppointment = (appointment) => ({
   status: appointment.status,
   payment_status: appointment.paymentStatus,
   note: appointment.note || null,
+});
+
+const fromDbResourceOccupancy = (booking) => ({
+  id: "",
+  professionalId: booking.professional_id,
+  resourceId: booking.resource_id,
+  date: booking.appointment_date,
+  time: booking.appointment_time?.slice(0, 5),
+  status: booking.status,
 });
 
 const fromDbHistory = (history) => ({
