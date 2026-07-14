@@ -6,12 +6,20 @@ async function bootstrap() {
 
 const STORAGE_KEY = "beauty-center-entrega-real-v2";
 
+function currentDateISO() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
 const uid = (prefix) => `${prefix}-${crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
 
-const today = "2026-07-07";
+const today = currentDateISO();
 const timeSlots = [
   "08:00",
   "09:00",
@@ -647,6 +655,9 @@ function showToast(message) {
 function setActiveView(view) {
   const allowed = allowedViews();
   state.activeView = allowed.includes(view) ? view : allowed[0];
+  if (state.activeView === "agenda") {
+    state.agendaDate = currentDateISO();
+  }
   saveState();
   render();
 }
@@ -2553,7 +2564,7 @@ document.addEventListener("click", async (event) => {
   const monthMove = event.target.closest("[data-agenda-month-move]");
   if (monthMove) return setAgendaDate(addMonths(state.agendaDate || today, Number(monthMove.dataset.agendaMonthMove)));
 
-  if (event.target.closest("[data-agenda-today]")) return setAgendaDate(today);
+  if (event.target.closest("[data-agenda-today]")) return setAgendaDate(currentDateISO());
 
   const slot = event.target.closest("[data-new-slot]");
   if (slot) return openAppointmentModal({ date: slot.dataset.date, time: slot.dataset.time, professionalId: currentProfessionalId() || state.professionals[0].id });
