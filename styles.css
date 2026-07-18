@@ -982,6 +982,14 @@ textarea:focus-visible {
   grid-template-columns: 82px repeat(7, minmax(154px, 1fr));
 }
 
+.timeline-head > span:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 8;
+  background: var(--mist);
+  box-shadow: 2px 0 5px rgba(25, 21, 18, 0.1);
+}
+
 .timeline-head span.is-today {
   background: rgba(213, 174, 98, 0.2);
   box-shadow: inset 3px 0 rgba(213, 174, 98, 0.72), inset -3px 0 rgba(213, 174, 98, 0.72);
@@ -1000,10 +1008,13 @@ textarea:focus-visible {
 }
 
 .timeline-axis {
-  position: relative;
+  position: sticky;
+  left: 0;
+  z-index: 5;
   height: 100%;
   background: var(--mist);
   border-right: 1px solid var(--line);
+  box-shadow: 2px 0 5px rgba(25, 21, 18, 0.1);
 }
 
 .timeline-axis span {

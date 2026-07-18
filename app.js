@@ -949,8 +949,18 @@ function renderAgenda() {
 }
 
 function renderTimelineDay(day, appointments, resourceBookings, timelineHeight) {
-  const appointmentLayouts = layoutTimelineItems(appointments);
-  const resourceLayouts = layoutTimelineItems(resourceBookings);
+  const overlapsOppositeLane = (item, oppositeItems) =>
+    oppositeItems.some((opposite) =>
+      timeRangesOverlap(item.time, appointmentEndTime(item), opposite.time, appointmentEndTime(opposite))
+    );
+  const appointmentLayouts = layoutTimelineItems(appointments).map((layout) => ({
+    ...layout,
+    sharesLane: overlapsOppositeLane(layout.item, resourceBookings),
+  }));
+  const resourceLayouts = layoutTimelineItems(resourceBookings).map((layout) => ({
+    ...layout,
+    sharesLane: overlapsOppositeLane(layout.item, appointments),
+  }));
   const slots = [];
   for (let minutes = agendaStartMinutes; minutes < agendaEndMinutes; minutes += agendaStepMinutes) {
     const time = minutesToTime(minutes);
@@ -1012,14 +1022,14 @@ function timelinePosition(item) {
   };
 }
 
-function renderTimelineAppointment({ item: appointment, column, columnCount }) {
+function renderTimelineAppointment({ item: appointment, column, columnCount, sharesLane = false }) {
   const patient = byId("patients", appointment.patientId);
   const treatment = byId("treatments", appointment.treatmentId);
   const resource = byId("resources", appointment.resourceId);
   const position = timelinePosition(appointment);
   const duration = timeToMinutes(appointmentEndTime(appointment)) - timeToMinutes(appointment.time);
   const compact = duration < 45;
-  const laneWidth = isAdmin() ? 94 : 64;
+  const laneWidth = isAdmin() || !sharesLane ? 94 : 64;
   const width = laneWidth / columnCount;
   const left = 3 + column * width;
   return `
@@ -1033,12 +1043,14 @@ function renderTimelineAppointment({ item: appointment, column, columnCount }) {
   `;
 }
 
-function renderTimelineResource({ item: booking, column, columnCount }) {
+function renderTimelineResource({ item: booking, column, columnCount, sharesLane = false }) {
   const resource = byId("resources", booking.resourceId);
   const professional = byId("professionals", booking.professionalId);
   const position = timelinePosition(booking);
-  const width = 28 / columnCount;
-  const left = 70 + column * width;
+  const laneWidth = sharesLane ? 28 : 94;
+  const laneStart = sharesLane ? 70 : 3;
+  const width = laneWidth / columnCount;
+  const left = laneStart + column * width;
   return `
     <div class="timeline-resource" style="top:${position.top}px;height:${position.height}px;left:${left}%;width:calc(${width}% - 3px)"
       title="${escapeHtml(resource?.name ?? "Recurso")} ocupado ${formatAppointmentTime(booking)} por ${escapeHtml(professional?.name ?? "equipo")}">
