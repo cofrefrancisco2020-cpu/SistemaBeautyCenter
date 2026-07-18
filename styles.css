@@ -1230,6 +1230,20 @@ textarea:focus-visible {
   grid-template-columns: minmax(320px, 0.92fr) minmax(420px, 1.08fr);
 }
 
+.crm-patient-search {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.crm-patient-search input {
+  width: 100%;
+}
+
 .segment-bar {
   display: flex;
   flex-wrap: wrap;

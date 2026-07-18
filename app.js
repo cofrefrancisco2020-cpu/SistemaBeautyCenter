@@ -211,7 +211,6 @@ const navButtons = $$(".side-nav button");
 const viewTitle = $("[data-view-title]");
 const viewEyebrow = $("[data-view-eyebrow]");
 const viewCopyEl = $("[data-view-copy]");
-const searchInput = $("[data-search]");
 const userCard = $("[data-user-card]");
 const appointmentModal = $("[data-appointment-modal]");
 const appointmentForm = $("[data-appointment-form]");
@@ -226,6 +225,7 @@ const historyForm = $("[data-history-form]");
 const requestModal = $("[data-request-modal]");
 const requestForm = $("[data-request-form]");
 const toastEl = $("[data-toast]");
+let patientSearchQuery = "";
 
 if (remoteLoadError && loginError) {
   loginError.textContent = remoteLoadError;
@@ -580,7 +580,7 @@ function appointmentAmount(appointment) {
 }
 
 function patientMatchesSearch(patient) {
-  const query = searchInput.value.trim().toLowerCase();
+  const query = patientSearchQuery.trim().toLowerCase();
   if (!query) return true;
   const clinicalTerms = patientTreatmentEvents(patient.id)
     .map((event) => {
@@ -1087,6 +1087,16 @@ function renderPatients() {
           </div>
           ${isAdmin() ? `<button class="primary-button" type="button" data-new-patient>Nuevo paciente</button>` : ""}
         </div>
+        <label class="crm-patient-search">
+          <span>Buscar paciente</span>
+          <input
+            data-patient-search
+            type="search"
+            autocomplete="off"
+            placeholder="Nombre, teléfono o tratamiento…"
+            value="${escapeHtml(patientSearchQuery)}"
+          />
+        </label>
         ${renderCrmFilters()}
         <div class="segment-bar">
           ${["all", "vip", "nueva", "inactiva", "cumpleaños", "tratamiento-incompleto", "oportunidad"]
@@ -2694,7 +2704,7 @@ async function completeLogin(user) {
   state.activeView = "dashboard";
   state.selectedSegment = "all";
   state.crmFilters = { ...defaultCrmFilters };
-  if (searchInput) searchInput.value = "";
+  patientSearchQuery = "";
   welcomeGateOpen = true;
   const first = filteredPatients()[0] ?? visiblePatients()[0];
   if (first) state.selectedPatientId = first.id;
@@ -2958,6 +2968,7 @@ document.addEventListener("click", async (event) => {
 
   if (event.target.closest("[data-clear-crm-filters]")) {
     state.crmFilters = { ...defaultCrmFilters };
+    patientSearchQuery = "";
     const first = filteredPatients()[0] ?? visiblePatients()[0];
     if (first) state.selectedPatientId = first.id;
     saveState();
@@ -3053,8 +3064,6 @@ document.addEventListener("change", async (event) => {
 
 $("[data-delete-appointment]").addEventListener("click", deleteAppointment);
 
-searchInput.addEventListener("input", render);
-
 document.addEventListener("submit", (event) => {
   if (event.target.matches("[data-access-form]")) saveAccess(event);
   if (event.target.matches("[data-resource-form]")) saveResource(event);
@@ -3062,6 +3071,17 @@ document.addEventListener("submit", (event) => {
 });
 
 document.addEventListener("input", (event) => {
+  const patientSearch = event.target.closest("[data-patient-search]");
+  if (patientSearch) {
+    const cursor = patientSearch.selectionStart ?? patientSearch.value.length;
+    patientSearchQuery = patientSearch.value;
+    renderPatients();
+    const replacement = $("[data-patient-search]");
+    replacement?.focus({ preventScroll: true });
+    replacement?.setSelectionRange(cursor, cursor);
+    return;
+  }
+
   const textArea = event.target.closest("[data-message-text]");
   if (textArea) {
     const patient = byId("patients", textArea.dataset.messageText);
