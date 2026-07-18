@@ -35,6 +35,10 @@ const timeSlots = [
   "19:00",
   "20:00",
 ];
+const agendaStartMinutes = 8 * 60;
+const agendaEndMinutes = 20 * 60;
+const agendaStepMinutes = 15;
+const agendaPixelsPerMinute = 1.2;
 
 const statusLabels = {
   requested: "Solicitada",
@@ -139,17 +143,17 @@ const seed = {
     { id: "pat-maite", name: "Maite Silva", phone: "+56 9 6871 3300", email: "maite.silva@gmail.com", origin: "Formulario web", segments: ["Nueva"], notes: "Enviar cuidados post limpieza.", lastVisit: "2026-07-05" },
   ],
   plans: [
-    { id: "plan-marcela", patientId: "pat-marcela", treatmentId: "trt-trilaser", purchasedSessions: 6, completedSessions: 2, status: "active", nextAction: "Agendar sesión 3 de 6 en 30 días" },
-    { id: "plan-camila", patientId: "pat-camila", treatmentId: "trt-hifu", purchasedSessions: 3, completedSessions: 1, status: "active", nextAction: "Control post HIFU en 45 días" },
+    { id: "plan-marcela", patientId: "pat-marcela", treatmentId: "trt-trilaser", purchasedSessions: 6, completedSessions: 2, status: "active", nextAction: "Agendar sesión 3 de 6 en 30 días", treatmentAreas: "Axilas y rebaje completo", clinicalConsiderations: "Piel sensible. Revisar reacción antes de aumentar intensidad." },
+    { id: "plan-camila", patientId: "pat-camila", treatmentId: "trt-hifu", purchasedSessions: 3, completedSessions: 1, status: "active", nextAction: "Control post HIFU en 45 días", treatmentAreas: "Tercio inferior del rostro", clinicalConsiderations: "Mantener fotoprotección y consultar sensibilidad en el control." },
     { id: "plan-fernanda", patientId: "pat-fernanda", treatmentId: "trt-crio", purchasedSessions: 4, completedSessions: 1, status: "paused", nextAction: "Reactivar protocolo corporal" },
     { id: "plan-rocio", patientId: "pat-rocio", treatmentId: "trt-peeling", purchasedSessions: 4, completedSessions: 1, status: "active", nextAction: "Control de luminosidad en 21 días" },
     { id: "plan-josefa", patientId: "pat-josefa", treatmentId: "trt-limpieza", purchasedSessions: 1, completedSessions: 1, status: "completed", nextAction: "Enviar gift card por fidelidad" },
   ],
   appointments: [
-    { id: "apt-1", patientId: "pat-marcela", treatmentId: "trt-trilaser", planId: "plan-marcela", professionalId: "pro-javiera", resourceId: "res-trilaser", date: "2026-07-07", time: "09:00", status: "confirmed", paymentStatus: "pending", note: "Sesión 3 sugerida" },
-    { id: "apt-2", patientId: "pat-camila", treatmentId: "trt-hifu", planId: "plan-camila", professionalId: "pro-camila", resourceId: "res-hifu", date: "2026-07-07", time: "10:00", status: "paid", paymentStatus: "paid", note: "Abono registrado" },
-    { id: "apt-3", patientId: "pat-rocio", treatmentId: "trt-peeling", planId: "plan-rocio", professionalId: "pro-natalia", resourceId: "res-facial", date: "2026-07-09", time: "11:00", status: "confirmed", paymentStatus: "pending", note: "Control facial" },
-    { id: "apt-4", patientId: "pat-josefa", treatmentId: "trt-limpieza", planId: "plan-josefa", professionalId: "pro-natalia", resourceId: "res-facial", date: "2026-07-10", time: "13:00", status: "attended", paymentStatus: "paid", note: "Atención realizada" },
+    { id: "apt-1", patientId: "pat-marcela", treatmentId: "trt-trilaser", planId: "plan-marcela", professionalId: "pro-javiera", resourceId: "res-trilaser", date: "2026-07-07", time: "09:00", endTime: "10:00", status: "confirmed", paymentStatus: "pending", note: "Sesión 3 sugerida" },
+    { id: "apt-2", patientId: "pat-camila", treatmentId: "trt-hifu", planId: "plan-camila", professionalId: "pro-camila", resourceId: "res-hifu", date: "2026-07-07", time: "10:00", endTime: "12:00", status: "paid", paymentStatus: "paid", note: "Abono registrado" },
+    { id: "apt-3", patientId: "pat-rocio", treatmentId: "trt-peeling", planId: "plan-rocio", professionalId: "pro-natalia", resourceId: "res-facial", date: "2026-07-09", time: "11:00", endTime: "12:00", status: "confirmed", paymentStatus: "pending", note: "Control facial" },
+    { id: "apt-4", patientId: "pat-josefa", treatmentId: "trt-limpieza", planId: "plan-josefa", professionalId: "pro-natalia", resourceId: "res-facial", date: "2026-07-10", time: "13:00", endTime: "14:00", status: "attended", paymentStatus: "paid", note: "Atención realizada" },
   ],
   histories: [
     { id: "his-1", patientId: "pat-marcela", appointmentId: "apt-old-1", treatmentId: "trt-trilaser", professionalId: "pro-javiera", date: "2026-06-11", note: "Sesión 1 de Trilaser. Buena tolerancia." },
@@ -277,9 +281,19 @@ function normalizeState(rawState = {}) {
     resourceId: treatment.resourceId || "res-none",
     active: treatment.active !== false,
   }));
-  next.plans = items("plans");
-  next.appointments = items("appointments");
-  next.resourceOccupancy = Array.isArray(rawState.resourceOccupancy) ? rawState.resourceOccupancy : [];
+  next.plans = items("plans").map((plan) => ({
+    ...plan,
+    treatmentAreas: plan.treatmentAreas || "",
+    clinicalConsiderations: plan.clinicalConsiderations || "",
+  }));
+  next.appointments = items("appointments").map((appointment) => ({
+    ...appointment,
+    endTime: appointment.endTime || addMinutesToTime(appointment.time, 60),
+  }));
+  next.resourceOccupancy = (Array.isArray(rawState.resourceOccupancy) ? rawState.resourceOccupancy : []).map((booking) => ({
+    ...booking,
+    endTime: booking.endTime || addMinutesToTime(booking.time, 60),
+  }));
   next.histories = items("histories").map((history) => {
     const migrated = { ...history };
     const looksManualSession = /sesión registrada manualmente/i.test(migrated.note ?? "");
@@ -375,6 +389,44 @@ function addMonths(value, amount) {
   const date = toLocalDate(value);
   date.setMonth(date.getMonth() + amount);
   return toISODate(date);
+}
+
+function timeToMinutes(value = "") {
+  const [hours, minutes] = value.split(":").map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return 0;
+  return hours * 60 + minutes;
+}
+
+function minutesToTime(totalMinutes) {
+  const normalized = Math.max(0, Math.min(23 * 60 + 59, totalMinutes));
+  const hours = String(Math.floor(normalized / 60)).padStart(2, "0");
+  const minutes = String(normalized % 60).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function addMinutesToTime(value, amount) {
+  return minutesToTime(timeToMinutes(value) + amount);
+}
+
+function appointmentEndTime(appointment) {
+  return appointment?.endTime || addMinutesToTime(appointment?.time || "09:00", 60);
+}
+
+function timeRangesOverlap(startA, endA, startB, endB) {
+  return timeToMinutes(startA) < timeToMinutes(endB) && timeToMinutes(endA) > timeToMinutes(startB);
+}
+
+function appointmentOverlapsRange(appointment, date, startTime, endTime) {
+  return appointment.date === date && timeRangesOverlap(appointment.time, appointmentEndTime(appointment), startTime, endTime);
+}
+
+function appointmentStartSlot(appointment) {
+  const hour = String(Math.floor(timeToMinutes(appointment.time) / 60)).padStart(2, "0");
+  return `${hour}:00`;
+}
+
+function formatAppointmentTime(appointment) {
+  return `${appointment.time}–${appointmentEndTime(appointment)}`;
 }
 
 function startOfWeek(value) {
@@ -815,18 +867,22 @@ function renderAgenda() {
   const weekAppointments = visibleAppointments
     .filter((appointment) => appointment.date >= firstDay && appointment.date <= lastDay)
     .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
-  const rows = timeSlots
-    .map((time) => {
-      const cells = days
-        .map((day) => {
-          const daily = visibleAppointments.filter((appointment) => appointment.date === day.date && appointment.time === time);
-          const resourceBookings = allActiveAppointments.filter(
-            (appointment) => appointment.date === day.date && appointment.time === time && appointment.resourceId !== "res-none"
-          );
-          return renderAgendaCell(day.date, time, daily, resourceBookings);
-        })
-        .join("");
-      return `<div class="schedule-row"><span class="time">${time}</span>${cells}</div>`;
+  const visibleAppointmentIds = new Set(visibleAppointments.map((appointment) => appointment.id));
+  const timelineHeight = (agendaEndMinutes - agendaStartMinutes) * agendaPixelsPerMinute;
+  const hourLabels = Array.from({ length: (agendaEndMinutes - agendaStartMinutes) / 30 + 1 }, (_, index) => {
+    const minutes = agendaStartMinutes + index * 30;
+    const top = (minutes - agendaStartMinutes) * agendaPixelsPerMinute;
+    const boundaryClass = minutes === agendaStartMinutes ? " is-start" : minutes === agendaEndMinutes ? " is-end" : "";
+    const intervalClass = minutes % 60 === 0 ? " is-hour" : " is-half";
+    return `<span class="${intervalClass}${boundaryClass}" style="top:${top}px">${minutesToTime(minutes)}</span>`;
+  }).join("");
+  const dayColumns = days
+    .map((day) => {
+      const appointments = visibleAppointments.filter((appointment) => appointment.date === day.date);
+      const hiddenResourceBookings = allActiveAppointments.filter(
+        (appointment) => appointment.date === day.date && appointment.resourceId !== "res-none" && !visibleAppointmentIds.has(appointment.id)
+      );
+      return renderTimelineDay(day, appointments, hiddenResourceBookings, timelineHeight);
     })
     .join("");
 
@@ -854,14 +910,27 @@ function renderAgenda() {
         <button class="ghost-button" type="button" data-agenda-today>Hoy</button>
         <button class="ghost-button" type="button" data-agenda-week-move="7">Semana siguiente</button>
       </div>
-      <div class="schedule-wrap">
-        <div class="schedule">
-          <div class="schedule-head">
+      <div class="schedule-wrap timeline-wrap">
+        <div class="schedule timeline-schedule">
+          <div class="schedule-head timeline-head">
             <span>Hora</span>
-            ${days.map((day) => `<span><strong>${day.label}</strong><small>${day.shortDate}</small></span>`).join("")}
+            ${days
+              .map(
+                (day) =>
+                  `<span class="${day.date === today ? "is-today" : ""}"><strong>${day.label}</strong><small>${day.shortDate}</small></span>`
+              )
+              .join("")}
           </div>
-          ${rows}
+          <div class="timeline-body" style="height:${timelineHeight}px">
+            <div class="timeline-axis" aria-hidden="true">${hourLabels}</div>
+            ${dayColumns}
+          </div>
         </div>
+      </div>
+      <div class="timeline-legend">
+        <span><i class="legend-appointment"></i>Cita</span>
+        ${isAdmin() ? "" : `<span><i class="legend-resource"></i>Recurso ocupado por el equipo</span>`}
+        <small>Las guías marcan 15 minutos; el horario se guarda con precisión de 5 minutos.</small>
       </div>
     </section>
 
@@ -879,15 +948,102 @@ function renderAgenda() {
   `);
 }
 
-function renderAgendaCell(date, time, appointments, resourceBookings) {
+function renderTimelineDay(day, appointments, resourceBookings, timelineHeight) {
+  const appointmentLayouts = layoutTimelineItems(appointments);
+  const resourceLayouts = layoutTimelineItems(resourceBookings);
+  const slots = [];
+  for (let minutes = agendaStartMinutes; minutes < agendaEndMinutes; minutes += agendaStepMinutes) {
+    const time = minutesToTime(minutes);
+    const top = (minutes - agendaStartMinutes) * agendaPixelsPerMinute;
+    const height = agendaStepMinutes * agendaPixelsPerMinute;
+    const major = minutes % 60 === 0 ? " is-hour" : minutes % 30 === 0 ? " is-half" : "";
+    slots.push(`
+      <button class="timeline-slot${major}" type="button" data-new-slot data-date="${day.date}" data-time="${time}"
+        style="top:${top}px;height:${height}px" aria-label="Agendar ${day.label} ${day.shortDate} a las ${time}"></button>
+    `);
+  }
   return `
-    <div class="slot-cell">
-      ${
-        appointments.length
-          ? appointments.map(renderAppointmentCard).join("")
-          : `<button class="empty-slot" type="button" data-new-slot data-date="${date}" data-time="${time}">+ Agendar</button>`
-      }
-      ${renderResourceOccupancy(resourceBookings)}
+    <div class="timeline-day${day.date === today ? " is-today" : ""}" style="height:${timelineHeight}px" data-timeline-date="${day.date}">
+      ${slots.join("")}
+      ${appointmentLayouts.map(renderTimelineAppointment).join("")}
+      ${resourceLayouts.map(renderTimelineResource).join("")}
+    </div>
+  `;
+}
+
+function layoutTimelineItems(items) {
+  const sorted = [...items].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+  const groups = [];
+  let currentGroup = [];
+  let groupEnd = -1;
+  sorted.forEach((item) => {
+    const start = timeToMinutes(item.time);
+    const end = timeToMinutes(appointmentEndTime(item));
+    if (currentGroup.length && start >= groupEnd) {
+      groups.push(currentGroup);
+      currentGroup = [];
+      groupEnd = -1;
+    }
+    currentGroup.push(item);
+    groupEnd = Math.max(groupEnd, end);
+  });
+  if (currentGroup.length) groups.push(currentGroup);
+
+  return groups.flatMap((group) => {
+    const columnEnds = [];
+    const provisional = group.map((item) => {
+      const start = timeToMinutes(item.time);
+      const end = timeToMinutes(appointmentEndTime(item));
+      let column = columnEnds.findIndex((columnEnd) => columnEnd <= start);
+      if (column < 0) column = columnEnds.length;
+      columnEnds[column] = end;
+      return { item, column };
+    });
+    return provisional.map((layout) => ({ ...layout, columnCount: columnEnds.length }));
+  });
+}
+
+function timelinePosition(item) {
+  const start = Math.max(timeToMinutes(item.time), agendaStartMinutes);
+  const end = Math.min(timeToMinutes(appointmentEndTime(item)), agendaEndMinutes);
+  return {
+    top: Math.max(0, (start - agendaStartMinutes) * agendaPixelsPerMinute),
+    height: Math.max(18, (end - start) * agendaPixelsPerMinute),
+  };
+}
+
+function renderTimelineAppointment({ item: appointment, column, columnCount }) {
+  const patient = byId("patients", appointment.patientId);
+  const treatment = byId("treatments", appointment.treatmentId);
+  const resource = byId("resources", appointment.resourceId);
+  const position = timelinePosition(appointment);
+  const duration = timeToMinutes(appointmentEndTime(appointment)) - timeToMinutes(appointment.time);
+  const compact = duration < 45;
+  const laneWidth = isAdmin() ? 94 : 64;
+  const width = laneWidth / columnCount;
+  const left = 3 + column * width;
+  return `
+    <button class="timeline-appointment ${appointment.status}${compact ? " is-compact" : ""}" type="button" data-edit-appointment="${appointment.id}"
+      style="top:${position.top}px;height:${position.height}px;left:${left}%;width:calc(${width}% - 4px)"
+      aria-label="${escapeHtml(patient?.name ?? "Paciente")} ${formatAppointmentTime(appointment)}">
+      <strong>${escapeHtml(patient?.name ?? "Paciente")}</strong>
+      ${compact ? "" : `<span>${escapeHtml(treatment?.name ?? "Tratamiento")}</span>`}
+      <small>${formatAppointmentTime(appointment)}${compact ? "" : ` · ${escapeHtml(resource?.name ?? "Sin recurso")}`}</small>
+    </button>
+  `;
+}
+
+function renderTimelineResource({ item: booking, column, columnCount }) {
+  const resource = byId("resources", booking.resourceId);
+  const professional = byId("professionals", booking.professionalId);
+  const position = timelinePosition(booking);
+  const width = 28 / columnCount;
+  const left = 70 + column * width;
+  return `
+    <div class="timeline-resource" style="top:${position.top}px;height:${position.height}px;left:${left}%;width:calc(${width}% - 3px)"
+      title="${escapeHtml(resource?.name ?? "Recurso")} ocupado ${formatAppointmentTime(booking)} por ${escapeHtml(professional?.name ?? "equipo")}">
+      <strong>${escapeHtml(resource?.name ?? "Recurso ocupado")}</strong>
+      <small>${formatAppointmentTime(booking)} · ${escapeHtml(professional?.name ?? "Equipo")}</small>
     </div>
   `;
 }
@@ -1406,6 +1562,7 @@ function renderAppointmentCard(appointment) {
     <button class="appointment-card ${appointment.status}" type="button" data-edit-appointment="${appointment.id}">
       <strong>${patient?.name ?? "Paciente"}</strong>
       <span>${treatment?.name ?? "Tratamiento"}</span>
+      <small class="appointment-time">${formatAppointmentTime(appointment)}</small>
       <small>${statusLabels[appointment.status]} · ${resource?.name ?? ""}</small>
     </button>
   `;
@@ -1426,7 +1583,7 @@ function renderResourceOccupancy(bookings) {
             return `
               <span class="resource-pill ${ownBooking ? "is-own" : "is-busy"}">
                 <strong>${resource?.name ?? "Recurso"}</strong>
-                <em>${label}</em>
+                <em>${formatAppointmentTime(booking)} · ${label}</em>
               </span>
             `;
           })
@@ -1443,7 +1600,7 @@ function renderAppointmentRow(appointment) {
   return `
     <div class="table-row">
       <div>
-        <strong>${formatDate(appointment.date)} ${appointment.time} · ${patient?.name ?? "Paciente"}</strong>
+        <strong>${formatDate(appointment.date)} ${formatAppointmentTime(appointment)} · ${patient?.name ?? "Paciente"}</strong>
         <small>${treatment?.name ?? "Tratamiento"} · ${professional?.name ?? "Profesional"} · ${statusLabels[appointment.status]}</small>
       </div>
       <div class="row-actions">
@@ -1508,6 +1665,7 @@ function renderPatientDetail(patient) {
       <button class="ghost-button" type="button" data-new-plan="${patient.id}">Agregar plan</button>
       <a class="ghost-button" href="${whatsappLink(patient)}" target="_blank" rel="noreferrer">WhatsApp</a>
       <a class="ghost-button" href="${emailLink(patient)}">Correo</a>
+      ${isAdmin() ? `<button class="danger-button" type="button" data-delete-patient-direct="${patient.id}">Eliminar paciente</button>` : ""}
     </div>
 
     <div class="summary-grid">
@@ -1558,7 +1716,17 @@ function renderPlanCard(plan) {
       <strong>${treatment?.name ?? "Tratamiento"}</strong>
       <small>${plan.completedSessions} de ${plan.purchasedSessions} sesiones · ${plan.status}</small>
       <div class="progress-track"><span style="display:block;width:${percent}%"></span></div>
-      <p class="muted">${plan.nextAction}</p>
+      <p class="muted">${escapeHtml(plan.nextAction)}</p>
+      <div class="plan-context-grid">
+        <div class="plan-context-item">
+          <span>Zonas tratadas</span>
+          <p>${escapeHtml(plan.treatmentAreas || "Sin zonas registradas")}</p>
+        </div>
+        <div class="plan-context-item is-alert">
+          <span>Consideraciones clínicas</span>
+          <p>${escapeHtml(plan.clinicalConsiderations || "Sin consideraciones registradas")}</p>
+        </div>
+      </div>
       <div class="row-actions">
         <button class="ghost-button" type="button" data-register-session="${plan.id}">Registrar sesión</button>
         ${plan.completedSessions > 0 ? `<button class="ghost-button" type="button" data-delete-last-session="${plan.id}">Eliminar última sesión</button>` : ""}
@@ -1754,7 +1922,6 @@ function fillAppointmentSelects(defaults = {}) {
   fillSelect($("[data-treatment-select]"), activeItemsWithCurrent("treatments", defaults.treatmentId), (treatment) => treatment.name, defaults.treatmentId);
   fillSelect($("[data-professional-select]"), professionalId ? state.professionals.filter((item) => item.id === professionalId) : state.professionals, (professional) => professional.name, defaults.professionalId || professionalId);
   fillSelect($("[data-resource-select]"), activeItemsWithCurrent("resources", defaults.resourceId), (resource) => resource.name, defaults.resourceId);
-  appointmentForm.elements.time.innerHTML = timeSlots.map((time) => `<option>${time}</option>`).join("");
 }
 
 function toggleAppointmentPatientMode() {
@@ -1764,6 +1931,31 @@ function toggleAppointmentPatientMode() {
   appointmentForm.elements.patientId.required = !isNew;
   appointmentForm.elements.newPatientName.required = isNew;
   appointmentForm.elements.newPatientPhone.required = isNew;
+}
+
+function getAppointmentContextPlan(patientId, treatmentId, appointmentId = "") {
+  const appointment = byId("appointments", appointmentId);
+  const linkedPlan = appointment?.planId ? byId("plans", appointment.planId) : null;
+  if (linkedPlan && linkedPlan.patientId === patientId && linkedPlan.treatmentId === treatmentId) return linkedPlan;
+  return getPlanForPatient(patientId, treatmentId);
+}
+
+function syncAppointmentPlanContext() {
+  const isNewPatient = appointmentForm.elements.patientMode.value === "new";
+  const patientId = appointmentForm.elements.patientId.value;
+  const treatmentId = appointmentForm.elements.treatmentId.value;
+  const plan = isNewPatient ? null : getAppointmentContextPlan(patientId, treatmentId, appointmentForm.elements.id.value);
+  const treatment = byId("treatments", treatmentId);
+  appointmentForm.elements.treatmentAreas.value = plan?.treatmentAreas ?? "";
+  appointmentForm.elements.clinicalConsiderations.value = plan?.clinicalConsiderations ?? "";
+  const copy = $("[data-appointment-plan-context-copy]");
+  if (isNewPatient) {
+    copy.textContent = `Al guardar, este contexto creará el plan inicial de ${treatment?.name ?? "tratamiento"} para la nueva paciente.`;
+  } else if (plan) {
+    copy.textContent = `Editas directamente el plan activo de ${treatment?.name ?? "tratamiento"}; el cambio también aparecerá en la ficha CRM.`;
+  } else {
+    copy.textContent = `Esta paciente no tiene un plan activo de ${treatment?.name ?? "este tratamiento"}. Si agregas contexto, se creará un plan inicial.`;
+  }
 }
 
 function openAppointmentModal(defaults = {}) {
@@ -1781,11 +1973,13 @@ function openAppointmentModal(defaults = {}) {
   appointmentForm.elements.resourceId.value = defaults.resourceId ?? treatment?.resourceId ?? "res-none";
   appointmentForm.elements.date.value = defaults.date ?? defaultAppointmentDate();
   appointmentForm.elements.time.value = defaults.time ?? "09:00";
+  appointmentForm.elements.endTime.value = defaults.endTime ?? addMinutesToTime(appointmentForm.elements.time.value, 60);
   appointmentForm.elements.status.value = defaults.status ?? "confirmed";
   appointmentForm.elements.note.value = defaults.note ?? "";
   $("[data-appointment-modal-title]").textContent = defaults.id ? "Editar hora" : "Nueva hora";
   $("[data-delete-appointment]").hidden = !defaults.id || !isAdmin();
   toggleAppointmentPatientMode();
+  syncAppointmentPlanContext();
   updateSlotHint();
   appointmentModal.showModal();
 }
@@ -1800,6 +1994,7 @@ function openPatientModal(patient = null) {
   patientForm.elements.segments.value = patient?.segments?.join(", ") ?? "Nueva";
   patientForm.elements.notes.value = patient?.notes ?? "";
   $("[data-patient-modal-title]").textContent = patient ? "Editar paciente" : "Nuevo paciente";
+  $("[data-delete-patient]").hidden = !patient || !isAdmin();
   patientModal.showModal();
 }
 
@@ -1813,6 +2008,8 @@ function openPlanModal(plan = null, patientId = state.selectedPatientId) {
   planForm.elements.completedSessions.value = plan?.completedSessions ?? 0;
   planForm.elements.status.value = plan?.status ?? "active";
   planForm.elements.nextAction.value = plan?.nextAction ?? "Agendar próxima sesión";
+  planForm.elements.treatmentAreas.value = plan?.treatmentAreas ?? "";
+  planForm.elements.clinicalConsiderations.value = plan?.clinicalConsiderations ?? "";
   planModal.showModal();
 }
 
@@ -1860,8 +2057,16 @@ function openRequestModal() {
 
 function updateSlotHint() {
   const data = Object.fromEntries(new FormData(appointmentForm));
+  if (!data.date || !data.time || !data.endTime) {
+    $("[data-slot-hint]").textContent = "Selecciona fecha, hora de inicio y hora de término.";
+    return;
+  }
+  if (timeToMinutes(data.endTime) <= timeToMinutes(data.time)) {
+    $("[data-slot-hint]").textContent = "La hora de término debe ser posterior a la hora de inicio.";
+    return;
+  }
   const conflict = hasAppointmentConflict(data);
-  const resourceBookings = resourcesForSlot(data.date, data.time, data.id);
+  const resourceBookings = resourcesForSlot(data.date, data.time, data.endTime, data.id);
   const resourceCopy = resourceBookings.length
     ? ` Recursos ocupados: ${resourceBookings.map(formatResourceBooking).join("; ")}.`
     : " Recursos libres en este horario.";
@@ -1870,11 +2075,11 @@ function updateSlotHint() {
     : `Horario disponible para guardar.${resourceCopy}`;
 }
 
-function resourcesForSlot(date, time, ignoredAppointmentId = "") {
+function resourcesForSlot(date, time, endTime, ignoredAppointmentId = "") {
   return allResourceBookings()
     .filter((appointment) => {
       if ((ignoredAppointmentId && appointment.id === ignoredAppointmentId) || appointment.status === "cancelled" || appointment.resourceId === "res-none") return false;
-      return appointment.date === date && appointment.time === time;
+      return appointmentOverlapsRange(appointment, date, time, endTime);
     })
     .sort((a, b) => a.resourceId.localeCompare(b.resourceId));
 }
@@ -1882,7 +2087,7 @@ function resourcesForSlot(date, time, ignoredAppointmentId = "") {
 function formatResourceBooking(appointment) {
   const resource = byId("resources", appointment.resourceId);
   const professional = byId("professionals", appointment.professionalId);
-  return `${resource?.name ?? "Recurso"} por ${professional?.name ?? "equipo"}`;
+  return `${resource?.name ?? "Recurso"} ${formatAppointmentTime(appointment)} por ${professional?.name ?? "equipo"}`;
 }
 
 function hasAppointmentConflict(candidate) {
@@ -1890,21 +2095,33 @@ function hasAppointmentConflict(candidate) {
     if (appointment.id === candidate.id || appointment.status === "cancelled") return false;
     return (
       appointment.date === candidate.date &&
-      appointment.time === candidate.time &&
-      appointment.professionalId === candidate.professionalId
+      appointment.professionalId === candidate.professionalId &&
+      timeRangesOverlap(candidate.time, candidate.endTime, appointment.time, appointmentEndTime(appointment))
     );
   });
   if (professionalConflict || candidate.resourceId === "res-none") return professionalConflict;
 
   return allResourceBookings().some((booking) => {
     if (candidate.id && booking.id === candidate.id) return false;
-    return booking.date === candidate.date && booking.time === candidate.time && booking.resourceId === candidate.resourceId;
+    return (
+      booking.date === candidate.date &&
+      booking.resourceId === candidate.resourceId &&
+      timeRangesOverlap(candidate.time, candidate.endTime, booking.time, appointmentEndTime(booking))
+    );
   });
 }
 
 async function saveAppointment(event) {
   event.preventDefault();
   const data = Object.fromEntries(new FormData(appointmentForm));
+  if (timeToMinutes(data.endTime) <= timeToMinutes(data.time)) {
+    showToast("La hora de término debe ser posterior a la hora de inicio.");
+    return;
+  }
+  if (hasAppointmentConflict(data)) {
+    showToast("Ese profesional o recurso ya está ocupado durante parte de ese horario.");
+    return;
+  }
   let patientId = data.patientId;
   if (data.patientMode === "new") {
     const patient = createPatientFromBasicData({
@@ -1916,12 +2133,27 @@ async function saveAppointment(event) {
     patientId = patient.id;
   }
   data.patientId = patientId;
-  if (hasAppointmentConflict(data)) {
-    showToast("Ese profesional o recurso ya tiene una reserva en ese horario.");
-    return;
-  }
   const treatment = byId("treatments", data.treatmentId);
-  const plan = getPlanForPatient(patientId, data.treatmentId);
+  let plan = getAppointmentContextPlan(patientId, data.treatmentId, data.id);
+  const treatmentAreas = data.treatmentAreas.trim();
+  const clinicalConsiderations = data.clinicalConsiderations.trim();
+  if (plan) {
+    plan.treatmentAreas = treatmentAreas;
+    plan.clinicalConsiderations = clinicalConsiderations;
+  } else if (treatmentAreas || clinicalConsiderations) {
+    plan = {
+      id: uid("plan"),
+      patientId,
+      treatmentId: data.treatmentId,
+      purchasedSessions: Math.max(1, Number(treatment?.defaultSessions) || 1),
+      completedSessions: 0,
+      status: "active",
+      nextAction: "Agendar próxima sesión",
+      treatmentAreas,
+      clinicalConsiderations,
+    };
+    state.plans.push(plan);
+  }
   const appointment = {
     id: data.id || uid("apt"),
     patientId,
@@ -1931,6 +2163,7 @@ async function saveAppointment(event) {
     resourceId: data.resourceId || treatment?.resourceId || "res-none",
     date: data.date,
     time: data.time,
+    endTime: data.endTime,
     status: data.status,
     paymentStatus: data.status === "paid" ? "paid" : (byId("appointments", data.id)?.paymentStatus ?? "pending"),
     note: data.note,
@@ -1973,6 +2206,44 @@ async function savePatient(event) {
   showToast("Paciente guardada.");
 }
 
+function removePatientFromLocalState(patientId) {
+  const appointmentIds = new Set(state.appointments.filter((appointment) => appointment.patientId === patientId).map((appointment) => appointment.id));
+  state.payments = state.payments.filter((payment) => payment.patientId !== patientId && !appointmentIds.has(payment.appointmentId));
+  state.histories = state.histories.filter((history) => history.patientId !== patientId);
+  state.appointments = state.appointments.filter((appointment) => appointment.patientId !== patientId);
+  state.plans = state.plans.filter((plan) => plan.patientId !== patientId);
+  state.requests = state.requests.map((request) => (request.patientId === patientId ? { ...request, patientId: "" } : request));
+  state.patients = state.patients.filter((patient) => patient.id !== patientId);
+  state.selectedPatientId = visiblePatients()[0]?.id ?? state.patients[0]?.id ?? "";
+}
+
+async function deletePatient(patientId = patientForm.elements.id.value) {
+  if (!isAdmin()) return;
+  const patient = byId("patients", patientId);
+  if (!patient) return;
+  const confirmed = window.confirm(
+    `¿Eliminar definitivamente a ${patient.name}? También se eliminarán sus planes, citas, pagos e historial clínico. Esta acción no se puede deshacer.`
+  );
+  if (!confirmed) return;
+
+  try {
+    if (dataAdapter.name === "supabase" && dataAdapter.deletePatient) {
+      await dataAdapter.deletePatient(patientId);
+      state = normalizeState(await dataAdapter.load());
+      state.selectedPatientId = visiblePatients()[0]?.id ?? state.patients[0]?.id ?? "";
+    } else {
+      removePatientFromLocalState(patientId);
+      if (!(await saveState())) return;
+    }
+    patientModal.close();
+    render();
+    showToast("Paciente y registros vinculados eliminados.");
+  } catch (error) {
+    console.error("No se pudo eliminar la paciente.", error);
+    showToast(error.message || "No se pudo eliminar la paciente.");
+  }
+}
+
 async function savePlan(event) {
   event.preventDefault();
   const data = Object.fromEntries(new FormData(planForm));
@@ -1984,7 +2255,9 @@ async function savePlan(event) {
     purchasedSessions: Number(data.purchasedSessions),
     completedSessions: Number(data.completedSessions),
     status: data.status,
-    nextAction: data.nextAction,
+    nextAction: data.nextAction.trim(),
+    treatmentAreas: data.treatmentAreas.trim(),
+    clinicalConsiderations: data.clinicalConsiderations.trim(),
   };
   if (plan.completedSessions < plan.purchasedSessions && plan.status === "completed") plan.status = "active";
   const index = state.plans.findIndex((item) => item.id === plan.id);
@@ -2586,6 +2859,11 @@ document.addEventListener("click", async (event) => {
   const editPatient = event.target.closest("[data-edit-patient]");
   if (editPatient) return openPatientModal(byId("patients", editPatient.dataset.editPatient));
 
+  const directDeletePatient = event.target.closest("[data-delete-patient-direct]");
+  if (directDeletePatient) return deletePatient(directDeletePatient.dataset.deletePatientDirect);
+
+  if (event.target.closest("[data-delete-patient]")) return deletePatient();
+
   const editPlan = event.target.closest("[data-edit-plan]");
   if (editPlan) return openPlanModal(byId("plans", editPlan.dataset.editPlan));
 
@@ -2698,10 +2976,22 @@ historyForm.addEventListener("submit", saveHistory);
 requestForm.addEventListener("submit", saveRequest);
 
 appointmentForm.addEventListener("change", (event) => {
-  if (event.target.name === "patientMode") toggleAppointmentPatientMode();
+  if (event.target.name === "patientMode") {
+    toggleAppointmentPatientMode();
+    syncAppointmentPlanContext();
+  }
+  if (event.target.name === "patientId") syncAppointmentPlanContext();
   if (event.target.name === "treatmentId") {
     const treatment = byId("treatments", event.target.value);
     appointmentForm.elements.resourceId.value = treatment?.resourceId ?? "res-none";
+    syncAppointmentPlanContext();
+  }
+  if (event.target.name === "time") {
+    const start = appointmentForm.elements.time.value;
+    const end = appointmentForm.elements.endTime.value;
+    if (!end || timeToMinutes(end) <= timeToMinutes(start)) {
+      appointmentForm.elements.endTime.value = addMinutesToTime(start, 60);
+    }
   }
   updateSlotHint();
 });

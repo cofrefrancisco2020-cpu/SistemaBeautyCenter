@@ -86,7 +86,8 @@ select
   professional_id,
   appointment_date,
   appointment_time,
-  status
+  status,
+  appointment_end_time
 from public.appointments
 where resource_id is not null
   and resource_id <> 'res-none'
@@ -96,4 +97,3 @@ revoke all on public.resource_occupancy from public, anon;
 grant select on public.resource_occupancy to authenticated, service_role;
 
 commit;
-

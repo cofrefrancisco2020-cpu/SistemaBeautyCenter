@@ -6,7 +6,7 @@
     <title>Beauty Center</title>
     <link rel="icon" type="image/png" sizes="64x64" href="./assets/favicon.png?v=20260708" />
     <link rel="apple-touch-icon" href="./assets/favicon.png?v=20260708" />
-    <link rel="stylesheet" href="./styles.css?v=20260708-schedule-favicon" />
+    <link rel="stylesheet" href="./styles.css?v=20260718-minute-agenda-4" />
   </head>
   <body>
     <a class="skip-link" href="#app">Saltar al contenido</a>
@@ -134,8 +134,12 @@
             <input name="date" type="date" required />
           </label>
           <label>
-            Hora
-            <select name="time" required></select>
+            Hora de inicio
+            <input name="time" type="time" min="08:00" max="19:55" step="300" required />
+          </label>
+          <label>
+            Hora de término
+            <input name="endTime" type="time" min="08:05" max="20:00" step="300" required />
           </label>
           <label>
             Estado
@@ -153,6 +157,20 @@
             <input name="note" type="text" autocomplete="off" placeholder="Ej: trae comprobante, control post tratamiento" />
           </label>
         </div>
+        <fieldset class="appointment-plan-context" data-appointment-plan-context>
+          <legend>Contexto del plan de tratamiento</legend>
+          <p data-appointment-plan-context-copy>Esta información quedará vinculada al plan de la paciente.</p>
+          <div class="modal-grid">
+            <label>
+              Zonas o áreas tratadas
+              <input name="treatmentAreas" type="text" autocomplete="off" placeholder="Ej: axilas, rebaje completo y rostro" />
+            </label>
+            <label>
+              Consideraciones clínicas
+              <textarea name="clinicalConsiderations" rows="3" placeholder="Ej: menor de edad, patología informada, sensibilidad o precaución relevante"></textarea>
+            </label>
+          </div>
+        </fieldset>
         <p class="form-hint" data-slot-hint>Selecciona paciente, tratamiento, profesional, fecha y hora.</p>
         <div class="modal-actions">
           <button class="primary-button" type="submit">Guardar hora</button>
@@ -207,6 +225,7 @@
         <div class="modal-actions">
           <button class="primary-button" type="submit">Guardar paciente</button>
           <button class="ghost-button" type="button" data-close-modal>Cancelar</button>
+          <button class="danger-button" type="button" data-delete-patient>Eliminar paciente</button>
         </div>
       </form>
     </dialog>
@@ -246,6 +265,14 @@
           <label class="wide-field">
             Próxima acción
             <input name="nextAction" type="text" required />
+          </label>
+          <label class="wide-field">
+            Zonas o áreas tratadas
+            <input name="treatmentAreas" type="text" autocomplete="off" placeholder="Ej: axilas, rebaje completo y rostro" />
+          </label>
+          <label class="wide-field">
+            Consideraciones clínicas
+            <textarea name="clinicalConsiderations" autocomplete="off" placeholder="Ej: paciente menor de edad, patología informada, sensibilidad o precaución relevante"></textarea>
           </label>
         </div>
         <div class="modal-actions">
@@ -402,6 +429,6 @@
     </dialog>
 
     <div class="toast" data-toast role="status" aria-live="polite"></div>
-    <script type="module" src="./app.js?v=20260708-schedule-favicon"></script>
+    <script type="module" src="./app.js?v=20260718-minute-agenda-4"></script>
   </body>
 </html>

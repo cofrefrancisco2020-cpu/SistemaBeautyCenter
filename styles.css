@@ -971,6 +971,250 @@ textarea:focus-visible {
   border-color: rgba(213, 174, 98, 0.42);
 }
 
+.timeline-schedule {
+  min-width: 1240px;
+}
+
+.timeline-head {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  grid-template-columns: 82px repeat(7, minmax(154px, 1fr));
+}
+
+.timeline-head span.is-today {
+  background: rgba(213, 174, 98, 0.2);
+  box-shadow: inset 3px 0 rgba(213, 174, 98, 0.72), inset -3px 0 rgba(213, 174, 98, 0.72);
+}
+
+.timeline-head span.is-today strong,
+.timeline-head span.is-today small {
+  color: var(--ink);
+}
+
+.timeline-body {
+  position: relative;
+  display: grid;
+  grid-template-columns: 82px repeat(7, minmax(154px, 1fr));
+  background: var(--paper);
+}
+
+.timeline-axis {
+  position: relative;
+  height: 100%;
+  background: var(--mist);
+  border-right: 1px solid var(--line);
+}
+
+.timeline-axis span {
+  position: absolute;
+  right: 10px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  transform: translateY(-50%);
+}
+
+.timeline-axis span.is-half {
+  color: rgba(91, 83, 73, 0.82);
+  font-size: 0.64rem;
+  font-weight: 800;
+}
+
+.timeline-axis span.is-start {
+  transform: translateY(4px);
+}
+
+.timeline-axis span.is-end {
+  transform: translateY(calc(-100% - 4px));
+}
+
+.timeline-day {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: #fffdf8;
+  border-right: 1px solid var(--line);
+}
+
+.timeline-day.is-today {
+  background: rgba(213, 174, 98, 0.09);
+  box-shadow: inset 3px 0 rgba(213, 174, 98, 0.48), inset -3px 0 rgba(213, 174, 98, 0.48);
+}
+
+.timeline-slot {
+  position: absolute;
+  left: 0;
+  z-index: 1;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid rgba(25, 21, 18, 0.07);
+  cursor: crosshair;
+}
+
+.timeline-slot.is-hour {
+  border-top-color: rgba(25, 21, 18, 0.2);
+}
+
+.timeline-slot.is-half {
+  border-top-color: rgba(25, 21, 18, 0.13);
+}
+
+.timeline-slot:hover,
+.timeline-slot:focus-visible {
+  background: rgba(213, 174, 98, 0.12);
+  outline: 2px solid rgba(213, 174, 98, 0.55);
+  outline-offset: -2px;
+}
+
+.timeline-slot::after {
+  content: "+";
+  position: absolute;
+  right: 5px;
+  top: 1px;
+  color: transparent;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.timeline-slot:hover::after,
+.timeline-slot:focus-visible::after {
+  color: var(--ink);
+}
+
+.timeline-appointment,
+.timeline-resource {
+  position: absolute;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 5px;
+}
+
+.timeline-appointment {
+  z-index: 4;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 6px 7px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid rgba(25, 21, 18, 0.15);
+  border-left: 5px solid var(--gold);
+  text-align: left;
+  box-shadow: 0 3px 10px rgba(25, 21, 18, 0.08);
+}
+
+.timeline-appointment:hover {
+  z-index: 5;
+  border-color: rgba(213, 174, 98, 0.7);
+  box-shadow: 0 8px 18px rgba(25, 21, 18, 0.14);
+}
+
+.timeline-appointment.is-compact {
+  gap: 0;
+  padding: 3px 5px;
+}
+
+.timeline-appointment.is-compact strong,
+.timeline-appointment.is-compact small {
+  line-height: 1.1;
+}
+
+.timeline-appointment.is-compact strong {
+  font-size: 0.68rem;
+}
+
+.timeline-appointment.is-compact small {
+  font-size: 0.59rem;
+}
+
+.timeline-appointment strong,
+.timeline-appointment span,
+.timeline-appointment small,
+.timeline-resource strong,
+.timeline-resource small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-appointment strong {
+  font-size: 0.76rem;
+}
+
+.timeline-appointment span,
+.timeline-appointment small {
+  font-size: 0.65rem;
+}
+
+.timeline-appointment.confirmed {
+  border-left-color: var(--sage);
+}
+
+.timeline-appointment.paid,
+.timeline-appointment.attended {
+  border-left-color: var(--blue);
+}
+
+.timeline-resource {
+  z-index: 3;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 5px;
+  color: var(--ink);
+  background: #fff7f5;
+  border: 1px solid rgba(170, 99, 91, 0.38);
+  border-left: 4px solid var(--rose);
+}
+
+.timeline-resource strong {
+  font-size: 0.67rem;
+}
+
+.timeline-resource small {
+  color: var(--muted);
+  font-size: 0.59rem;
+  font-weight: 800;
+}
+
+.timeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.timeline-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timeline-legend i {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.legend-appointment {
+  background: var(--sage);
+}
+
+.legend-resource {
+  background: var(--rose);
+}
+
+.timeline-legend small {
+  margin-left: auto;
+}
+
 .crm-layout {
   grid-template-columns: minmax(320px, 0.92fr) minmax(420px, 1.08fr);
 }
@@ -1101,6 +1345,44 @@ textarea:focus-visible {
   font-size: 0;
 }
 
+.plan-context-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.plan-context-item {
+  min-width: 0;
+  padding: 9px 10px;
+  background: rgba(243, 239, 232, 0.58);
+  border-left: 3px solid var(--sage);
+  border-radius: 4px;
+}
+
+.plan-context-item.is-alert {
+  border-left-color: var(--gold);
+}
+
+.plan-context-item span {
+  margin-bottom: 3px;
+  font-size: 0.64rem;
+}
+
+.plan-context-item p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.appointment-time {
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
 .timeline {
   display: grid;
   gap: 8px;
@@ -1217,6 +1499,30 @@ textarea:focus-visible {
   border-radius: 6px;
 }
 
+.appointment-plan-context {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+  background: rgba(123, 154, 128, 0.08);
+  border: 1px solid rgba(123, 154, 128, 0.24);
+  border-radius: 8px;
+}
+
+.appointment-plan-context legend {
+  padding: 0 6px;
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.appointment-plan-context > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 .modal-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1292,6 +1598,9 @@ textarea:focus-visible {
 }
 
 @media (max-width: 860px) {
+  .plan-context-grid {
+    grid-template-columns: 1fr;
+  }
   .workspace {
     padding: 14px;
   }

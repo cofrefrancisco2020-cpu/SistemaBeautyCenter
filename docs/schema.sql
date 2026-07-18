@@ -2,6 +2,7 @@
 -- Ejecutar primero, antes de docs/rls-policies.sql.
 
 create extension if not exists pgcrypto;
+create extension if not exists btree_gist;
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -83,19 +84,22 @@ create table if not exists treatment_plans (
   completed_sessions integer not null default 0 check (completed_sessions >= 0),
   status text not null check (status in ('active', 'completed', 'paused')),
   next_action text,
+  treatment_areas text,
+  clinical_considerations text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 create table if not exists appointments (
   id text primary key,
-  patient_id text not null references patients(id),
+  patient_id text not null references patients(id) on delete cascade,
   treatment_id text not null references treatments(id),
   treatment_plan_id text references treatment_plans(id) on delete set null,
   professional_id text not null references professionals(id),
   resource_id text references resources(id) on delete set null,
   appointment_date date not null,
   appointment_time time not null,
+  appointment_end_time time not null,
   status text not null check (status in ('requested', 'confirmed', 'rescheduled', 'paid', 'attended', 'cancelled')),
   payment_status text not null check (payment_status in ('pending', 'paid', 'refunded')) default 'pending',
   note text,
@@ -103,13 +107,23 @@ create table if not exists appointments (
   updated_at timestamptz not null default now()
 );
 
-create unique index if not exists appointments_professional_slot_unique
-  on appointments (professional_id, appointment_date, appointment_time)
-  where status <> 'cancelled';
+alter table appointments
+  add constraint appointments_time_order_check
+  check (appointment_end_time > appointment_time);
 
-create unique index if not exists appointments_resource_slot_unique
-  on appointments (resource_id, appointment_date, appointment_time)
-  where resource_id is not null and resource_id <> 'res-none' and status <> 'cancelled';
+alter table appointments
+  add constraint appointments_professional_no_overlap
+  exclude using gist (
+    professional_id with =,
+    tsrange(appointment_date + appointment_time, appointment_date + appointment_end_time, '[)') with &&
+  ) where (status <> 'cancelled');
+
+alter table appointments
+  add constraint appointments_resource_no_overlap
+  exclude using gist (
+    resource_id with =,
+    tsrange(appointment_date + appointment_time, appointment_date + appointment_end_time, '[)') with &&
+  ) where (resource_id is not null and resource_id <> 'res-none' and status <> 'cancelled');
 
 create table if not exists clinical_history (
   id text primary key,
@@ -319,7 +333,8 @@ select
   professional_id,
   appointment_date,
   appointment_time,
-  status
+  status,
+  appointment_end_time
 from appointments
 where resource_id is not null
   and resource_id <> 'res-none'

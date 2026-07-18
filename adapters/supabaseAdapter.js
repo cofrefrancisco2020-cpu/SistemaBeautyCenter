@@ -127,6 +127,14 @@ export const createSupabaseAdapter = ({ supabase }) => {
       return data;
     },
 
+    async deletePatient(patientId) {
+      const { error } = await supabase.rpc("delete_patient_cascade", {
+        target_patient_id: patientId,
+      });
+      if (error) throw error;
+      persistedState = null;
+    },
+
     exportSnapshot(state) {
       return JSON.stringify(state, null, 2);
     },
@@ -294,6 +302,8 @@ const fromDbPlan = (plan) => ({
   completedSessions: plan.completed_sessions,
   status: plan.status,
   nextAction: plan.next_action ?? "",
+  treatmentAreas: plan.treatment_areas ?? "",
+  clinicalConsiderations: plan.clinical_considerations ?? "",
 });
 
 const toDbPlan = (plan) => ({
@@ -304,6 +314,8 @@ const toDbPlan = (plan) => ({
   completed_sessions: plan.completedSessions,
   status: plan.status,
   next_action: plan.nextAction || null,
+  treatment_areas: plan.treatmentAreas || null,
+  clinical_considerations: plan.clinicalConsiderations || null,
 });
 
 const fromDbAppointment = (appointment) => ({
@@ -315,6 +327,7 @@ const fromDbAppointment = (appointment) => ({
   resourceId: appointment.resource_id ?? "res-none",
   date: appointment.appointment_date,
   time: appointment.appointment_time?.slice(0, 5),
+  endTime: appointment.appointment_end_time?.slice(0, 5) ?? "",
   status: appointment.status,
   paymentStatus: appointment.payment_status,
   note: appointment.note ?? "",
@@ -329,6 +342,7 @@ const toDbAppointment = (appointment) => ({
   resource_id: appointment.resourceId || null,
   appointment_date: appointment.date,
   appointment_time: appointment.time,
+  appointment_end_time: appointment.endTime,
   status: appointment.status,
   payment_status: appointment.paymentStatus,
   note: appointment.note || null,
@@ -340,6 +354,7 @@ const fromDbResourceOccupancy = (booking) => ({
   resourceId: booking.resource_id,
   date: booking.appointment_date,
   time: booking.appointment_time?.slice(0, 5),
+  endTime: booking.appointment_end_time?.slice(0, 5) ?? "",
   status: booking.status,
 });
 
